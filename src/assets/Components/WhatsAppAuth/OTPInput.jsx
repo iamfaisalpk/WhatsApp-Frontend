@@ -137,7 +137,7 @@ return (
                 disabled={loading}
                 className="text-[#25d366] hover:underline font-medium"
             >
-                Resend code
+                Resend OTP
             </button>
             )}
         </div>
