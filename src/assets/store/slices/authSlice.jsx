@@ -1,6 +1,5 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 
-
 const initialState = {
   currentStep: 'phone',
   phoneNumber: '',
@@ -14,17 +13,22 @@ const initialState = {
   sessionId: '',
   debugInfo: '',
   generatedOtpForTest: '',
+  user: null,
+  token: localStorage.getItem('token') || null,
 };
 
-// Async thunk: Send OTP
+// Async: Send OTP
 export const sendOTP = createAsyncThunk(
   'auth/sendOTP',
-  async ({ phone }, { rejectWithValue }) => {
+  async (_, { getState, rejectWithValue }) => {
+    const { phoneNumber, countryCode } = getState().auth;
+    const fullPhone = `${countryCode}${phoneNumber.replace(/^0+/, '')}`;
+
     try {
       const response = await fetch('http://localhost:3000/api/auth/send-otp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone }),
+        body: JSON.stringify({ phone: fullPhone }),
       });
       const data = await response.json();
       if (!response.ok) return rejectWithValue(data);
@@ -38,19 +42,24 @@ export const sendOTP = createAsyncThunk(
   }
 );
 
-// Async thunk: Verify OTP
+// Async: Verify OTP
 export const verifyOTP = createAsyncThunk(
   'auth/verifyOTP',
-  async ({ phone, otp }, { rejectWithValue }) => {
+  async (_, { getState, rejectWithValue }) => {
+    const { phoneNumber, countryCode, otp } = getState().auth;
+    const fullPhone = `${countryCode}${phoneNumber.replace(/^0+/, '')}`;
+
+    if (!fullPhone?.trim() || !otp?.trim()) {
+      return rejectWithValue({ message: 'Phone and OTP are required' });
+    }
+
     try {
-      if (!phone || !otp) {
-        return rejectWithValue({ message: 'Phone and OTP are required' });
-      }
       const response = await fetch('http://localhost:3000/api/auth/verify-otp', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone, otp }),
+        body: JSON.stringify({ phone: fullPhone, otp: otp.trim() }),
       });
+
       const data = await response.json();
       if (!response.ok) return rejectWithValue(data);
       return data;
@@ -63,7 +72,8 @@ export const verifyOTP = createAsyncThunk(
   }
 );
 
-// Async thunk: Test backend connection
+
+// Async: Test backend connection
 export const testConnection = createAsyncThunk(
   'auth/testConnection',
   async (_, { rejectWithValue }) => {
@@ -111,6 +121,20 @@ const authSlice = createSlice({
       state.success = '';
       state.debugInfo = '';
     },
+    setUser: (state, action) => {
+      state.user = action.payload;
+    },
+    logoutUser: (state) => {
+      state.user = null;
+      state.token = null;
+      localStorage.removeItem('token');
+      state.currentStep = 'phone';
+      state.phoneNumber = '';
+      state.otp = '';
+      state.sessionId = '';
+      state.success = '';
+      state.error = '';
+    },
   },
   extraReducers: (builder) => {
     builder
@@ -123,24 +147,23 @@ const authSlice = createSlice({
       })
       .addCase(sendOTP.fulfilled, (state, action) => {
         state.loading = false;
-        state.success = `OTP sent successfully to ${action.payload.phone || state.countryCode + state.phoneNumber.replace(/^0+/, '')}!`;
         state.currentStep = 'otp';
-        state.resendTimer = 60;
-        state.debugInfo += `\nResponse: 200 OK\n${JSON.stringify(action.payload, null, 2)}`;
-        if (action.payload.sessionId) {
-          state.sessionId = action.payload.sessionId;
-          state.debugInfo += `\nSession ID: ${action.payload.sessionId}`;
-        }
+        state.success = `OTP sent successfully to ${action.payload.phone || state.countryCode + state.phoneNumber}!`;
+        state.resendTimer = action.payload.resendTimer || 60;
+        state.sessionId = action.payload.sessionId || '';
+        state.debugInfo += `\n  Response: ${JSON.stringify(action.payload, null, 2)}`;
         if (action.payload.otp) {
-          state.generatedOtpForTest = action.payload.otp; 
-          state.debugInfo += `\n Test OTP: ${action.payload.otp}`;
+          state.generatedOtpForTest = action.payload.otp;
+          state.debugInfo += `\n  Test OTP: ${action.payload.otp}`;
         }
       })
       .addCase(sendOTP.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.payload.message || 'Failed to send OTP';
-        state.debugInfo += `\nError: ${action.payload.message}`;
-        if (action.payload.details) state.debugInfo += `\nDetails: ${action.payload.details}`;
+        state.error = action.payload?.message || 'Failed to send OTP';
+        state.debugInfo += `\n  Error: ${action.payload?.message}`;
+        if (action.payload?.details) {
+          state.debugInfo += `\nDetails: ${action.payload.details}`;
+        }
       })
 
       // Verify OTP
@@ -155,33 +178,41 @@ const authSlice = createSlice({
         state.loading = false;
         state.isVerifying = false;
         state.success = 'Login successful!';
-        state.debugInfo += `\nResponse: 200 OK\n${JSON.stringify(action.payload, null, 2)}`;
-        if (action.payload.sessionId) {
-          state.sessionId = action.payload.sessionId;
+        state.sessionId = action.payload.sessionId || '';
+        state.debugInfo += `\n Verified\n${JSON.stringify(action.payload, null, 2)}`;
+
+        if (action.payload.user) {
+          state.user = action.payload.user;
+          state.token = action.payload.user.token || null;
+          if (state.token) localStorage.setItem('token', state.token);
         }
       })
       .addCase(verifyOTP.rejected, (state, action) => {
         state.loading = false;
         state.isVerifying = false;
-        state.error = action.payload.message || 'OTP verification failed';
-        state.debugInfo += `\nError: ${action.payload.message}`;
-        if (action.payload.details) state.debugInfo += `\nDetails: ${action.payload.details}`;
-        if (action.payload.attemptsRemaining !== undefined)
+        state.error = action.payload?.message || 'OTP verification failed';
+        state.debugInfo += `\n Error: ${action.payload?.message}`;
+        if (action.payload?.details) {
+          state.debugInfo += `\nDetails: ${action.payload.details}`;
+        }
+        if (action.payload?.attemptsRemaining !== undefined) {
           state.debugInfo += `\nAttempts remaining: ${action.payload.attemptsRemaining}`;
+        }
       })
 
       // Test backend connection
       .addCase(testConnection.fulfilled, (state, action) => {
         state.success = 'Backend connection successful!';
-        state.debugInfo = `Connection test: ${JSON.stringify(action.payload, null, 2)}`;
+        state.debugInfo = `🔌 Connection test success: ${JSON.stringify(action.payload, null, 2)}`;
       })
       .addCase(testConnection.rejected, (state, action) => {
         state.error = 'Cannot connect to backend server';
-        state.debugInfo = `Connection test failed: ${action.payload.details}`;
+        state.debugInfo = `Connection test failed: ${action.payload?.details || 'No details'}`;
       });
   },
 });
 
+// Export Actions
 export const {
   setCurrentStep,
   setPhoneNumber,
@@ -190,6 +221,8 @@ export const {
   setResendTimer,
   clearMessages,
   setOtpAndClear,
+  setUser,
+  logoutUser,
 } = authSlice.actions;
 
 export default authSlice.reducer;

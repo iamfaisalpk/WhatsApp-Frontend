@@ -19,13 +19,14 @@ const handlePhoneSubmit = (e) => {
         });
         return;
     }
-    const fullPhone = countryCode + phoneNumber.replace(/^0+/, '');
-    dispatch(sendOTP({ phone: fullPhone }));
+    const fullPhone = phoneNumber.replace(/\s+/g, '');
+        dispatch(sendOTP({ phone: fullPhone }));
+
 };
 
 return (
     <div className="min-h-screen bg-[#f0f2f5] flex flex-col items-center justify-center p-4">
-      {/* Logo */}
+        {/* Logo */}
     <div className="flex items-center justify-center mb-8">
         <FaWhatsapp className="text-[#25d366] text-5xl mr-2" />
         <h1 className="text-4xl font-light text-gray-800">WhatsApp</h1>
@@ -47,21 +48,21 @@ return (
         <h2 className="text-xl text-gray-800 font-light mb-2 text-center">Enter phone number</h2>
         <p className="text-xs text-gray-500 text-center mb-4">Select a country and enter your phone number.</p>
 
-        <PhoneInput
-        country={'in'}
-        value={phoneNumber}
-        onChange={(value, countryData) => {
-            dispatch(setPhoneNumber(value));
-            dispatch(setCountryCode(`+${countryData.dialCode}`));
-        }}
-        inputClass="!w-full !p-3 !text-base !border !border-gray-300 !rounded-md focus:!border-[#25d366] focus:!ring-0 !outline-none"
-        buttonClass="!bg-white !border !border-gray-300 !rounded-l hover:!bg-gray-100"
-        dropdownClass="!bg-white !border !border-gray-300 !shadow-md !rounded"
-        placeholder="Phone number"
-        enableSearch
-        searchPlaceholder="Search"
-        countryCodeEditable={false}
-        />
+<PhoneInput
+            country={'in'}
+            value={phoneNumber}
+            onChange={(value) => {
+            dispatch(setPhoneNumber(value)); 
+            }}
+            inputClass="!w-full !p-3 !text-base !border !border-gray-300 !rounded-md focus:!border-[#25d366] focus:!ring-0 !outline-none"
+            buttonClass="!bg-white !border !border-gray-300 !rounded-l hover:!bg-gray-100"
+            dropdownClass="!bg-white !border !border-gray-300 !shadow-md !rounded"
+            placeholder="Phone number"
+            enableSearch
+            searchPlaceholder="Search"
+            countryCodeEditable={false}
+/>
+
 
             {/* Error Message */}
         {error && <p className="text-red-600 text-xs mt-2 text-center">{error}</p>}

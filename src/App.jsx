@@ -4,18 +4,14 @@ import WhatsAppAuth from './assets/Components/WhatsAppAuth/WhatsAppAuth';
 import ProtectedRoute from './assets/Components/ProtectedRoute';
 import AppMain from './assets/Pages/AppMain';
 import Chat from './assets/Pages/Chat';
+import ProfileSetup from './assets/Pages/ProfileSetup';
 
 
 
 const router = createBrowserRouter([
-  {
-    path: '/',
-    element: <Navigate to="/auth" replace />, 
-  },
-  {
-    path: '/auth',
-    element: <WhatsAppAuth />,
-  },
+  { path: '/', element: <Navigate to="/auth" replace />,},
+  { path: '/auth', element: <WhatsAppAuth />,},
+  {path :'/setup-profile', element: <ProfileSetup/>},
   {
     element: <ProtectedRoute />,
     children: [
