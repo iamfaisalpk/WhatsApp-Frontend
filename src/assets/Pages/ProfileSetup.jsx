@@ -2,74 +2,107 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useSelector, useDispatch } from "react-redux";
 import axios from "axios";
-import { setUser } from "../store/slices/authSlice";
+import { setUser, logoutUser } from "../store/slices/authSlice";
 import { Camera } from "lucide-react";
+
+const baseURL = import.meta.env.VITE_API_URL;
 
 const ProfileSetup = () => {
   const [name, setName] = useState("");
   const [image, setImage] = useState(null);
   const [preview, setPreview] = useState("");
   const [loading, setLoading] = useState(false);
-
+  const [error, setError] = useState("");
+  
   const navigate = useNavigate();
   const dispatch = useDispatch();
+  const { token, phoneNumber, user } = useSelector((state) => state.auth);
+  
+  // Get token from storage if not in Redux
+  const storageToken = localStorage.getItem('authToken') || sessionStorage.getItem('authToken');
+  const authToken = token || storageToken;
 
-  const { phoneNumber, user } = useSelector((state) => state.auth);
-
+  // Redirect if already has profile
   useEffect(() => {
     if (user?.name && user?.profilePic) {
       navigate("/app");
     }
   }, [user, navigate]);
 
+  // Check for token on mount
+  useEffect(() => {
+    if (!authToken) {
+      navigate('/auth');
+    }
+  }, [authToken, navigate]);
+
   const handleImageChange = (e) => {
     const file = e.target.files[0];
     if (!file) return;
+    
+    if (file.size > 2 * 1024 * 1024) {
+      setError("Image must be less than 2MB");
+      return;
+    }
+    
+    if (!file.type.match("image.*")) {
+      setError("Please select an image file");
+      return;
+    }
+    
+    setError("");
     setImage(file);
     setPreview(URL.createObjectURL(file));
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-
-    if (!name.trim() || !image) {
-      return alert("Please enter your name and select a profile image.");
+    setError("");
+    
+    if (!name.trim()) {
+      setError("Please enter your name");
+      return;
     }
-
-    const token = localStorage.getItem("token"); 
-
-    if (!token) {
-      alert("Authentication failed. Please login again.");
+    
+    if (!image) {
+      setError("Please select a profile image");
       return;
     }
 
     try {
       setLoading(true);
-
+      
       const formData = new FormData();
       formData.append("name", name.trim());
       formData.append("profilePic", image);
 
-      const { data } = await axios.put(
-        "http://localhost:3000/api/profile/update",
+      const response = await axios.put(
+        `${baseURL}/api/profile/update`,
         formData,
         {
           headers: {
             "Content-Type": "multipart/form-data",
-            Authorization: `Bearer ${token}`,
+            Authorization: `Bearer ${authToken}`,
           },
-          withCredentials: true,
         }
       );
 
-      dispatch(setUser(data.user));
+      dispatch(setUser(response.data.user));
       navigate("/app");
+      
     } catch (error) {
-      console.error("Profile setup failed:", error.response?.data || error.message);
-      alert(
-        error?.response?.data?.message ||
-          "Profile setup failed. Please try again."
-      );
+      console.error("Profile update error:", error);
+      
+      if (error.response?.status === 401) {
+        setError("Session expired. Please login again.");
+        dispatch(logoutUser());
+        navigate('/auth');
+      } else {
+        setError(
+          error.response?.data?.message ||
+          "Profile update failed. Please try again."
+        );
+      }
     } finally {
       setLoading(false);
     }

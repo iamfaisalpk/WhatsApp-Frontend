@@ -1,14 +1,27 @@
 import React from 'react';
-import { Navigate, Outlet } from 'react-router-dom';
 import { useSelector } from 'react-redux';
+import { Navigate, Outlet } from 'react-router-dom';
 
 const ProtectedRoute = () => {
-    const { user, success } = useSelector((state) => state.auth);
+    const { token, user, isAuthLoaded } = useSelector((state) => state.auth);
 
-    const isAuthenticated =
-    user?.token && success === 'Login successful!';
+    if (!isAuthLoaded) {
+        console.log("ProtectedRoute: Waiting for auth to load...");
+        return <div>Loading...</div>; 
+    }
 
-    return isAuthenticated ? <Outlet /> : <Navigate to="/auth" replace />;
+    if (!token) {
+        console.log("ProtectedRoute: No token, redirecting to /auth.");
+        return <Navigate to="/auth" replace />;
+    }
+
+    if (token && (!user?.name || !user?.profilePic)) {
+        console.log("ProtectedRoute: Token exists, but profile not complete, redirecting to /setup-profile.");
+        return <Navigate to="/setup-profile" replace />;
+    }
+
+    console.log("ProtectedRoute: Token and profile complete, rendering Outlet.");
+    return <Outlet />;
 };
 
 export default ProtectedRoute;

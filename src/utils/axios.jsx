@@ -1,12 +1,12 @@
 import axios from "axios";
 
-// ✅ Create Axios instance
+//  Create Axios instance
 const API = axios.create({
-  baseURL: "http://localhost:3000/api", 
+  baseURL: "http://localhost:5000/api", 
   withCredentials: true, 
 });
 
-// ✅ Add interceptor to attach Bearer token
+//  Add interceptor to attach Bearer token
 API.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem("token");
