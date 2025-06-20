@@ -74,7 +74,7 @@ const router = createBrowserRouter([
 
 const App = () => {
   const dispatch = useDispatch();
-  const { token,  } = useSelector((state) => state.auth);
+  // const { token,  } = useSelector((state) => state.auth);
 
   useEffect(() => {
   const storedToken = localStorage.getItem("authToken");
@@ -85,8 +85,6 @@ const App = () => {
     user: storedUser ? JSON.parse(storedUser) : null,
   }));
 }, [dispatch]);
-
-
 
   useEffect(() => {
     console.log("App.jsx: Auth loaded, rendering RouterProvider.");
