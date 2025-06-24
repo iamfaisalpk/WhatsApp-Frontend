@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { useSelector } from "react-redux";
+import React, { useEffect, useState } from "react";
+import { useSelector, useDispatch } from "react-redux";
 import {
   Search,
   UserCircle,
@@ -17,17 +17,65 @@ import {
   MessageSquareText,
 } from "lucide-react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
+import { accessChat, setSelectedChat } from "../store/slices/chatSlice";
+import ChatBox from "../Components/chat/ChatBox";
+import instance from "../Services/axiosInstance";
 
 const AppMain = () => {
   const [activeTab, setActiveTab] = useState("All");
   const [activeIcon, setActiveIcon] = useState("Chats");
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState([]);
   const { user } = useSelector((state) => state.auth);
+  const dispatch = useDispatch();
   const navigate = useNavigate();
   const location = useLocation();
+  const {selectedChat} = useSelector((state)=> state.chat)
 
   const isProfilePage = location.pathname === "/app/profile";
+
+  useEffect(() => {
+    const fetchUsers = async () => {
+      if (!searchQuery.trim()) {
+        setSearchResults([]);
+        return;
+      }
+      try {
+        const { data } = await instance.get(`/api/users?search=${searchQuery}`);
+        setSearchResults(data);
+      } catch (err) {
+        console.log("Search error", err);
+      }
+    };
+
+    const delayDebounce = setTimeout(fetchUsers, 500);
+    return () => clearTimeout(delayDebounce);
+  }, [searchQuery]);
+
+  const handleUserClick = async (selectedUser) => {
+    try {
+      const action = await dispatch(accessChat(selectedUser._id));
+      if (accessChat.fulfilled.match(action)) {
+        navigate("/app");
+        setSearchQuery("");
+        setSearchResults([]);
+      }
+    } catch (err) {
+      console.error("Error accessing chat", err);
+    }
+  };
+
+  useEffect(() => {
+  const handleEsc = (e) => {
+    if (e.key === "Escape") {
+      dispatch(setSelectedChat(null));
+    }
+  };
+  window.addEventListener("keydown", handleEsc);
+  return () => window.removeEventListener("keydown", handleEsc);
+}, [dispatch]);
+
 
   const tabs = [
     { id: "All", label: "All" },
@@ -117,26 +165,26 @@ const AppMain = () => {
         </div>
       </div>
 
-      {/* Center Chat List Panel */}
+      {/* Center Panel */}
       {!isProfilePage && (
         <div className="w-[420px] bg-[#161717] flex flex-col relative border-l border-r border-white/15 shadow-inner shadow-white/5">
           <div className="bg-[#161717] px-4 py-4 flex items-center justify-between">
             <h1 className="text-white text-2xl font-semibold">WhatsApp</h1>
             <div className="flex items-center space-x-1">
-              <button className="p-2 rounded-full hover:bg-[#075E54] text-[#ECE5DD] hover:text-white">
-                <MessageSquarePlus size={20} />
+              <button className="p-2 rounded-full hover:bg-[#494a4a] text-[#ECE5DD] hover:text-white">
+                <MessageSquarePlus size={20} className="cursor-pointer" />
               </button>
               <button
-                className="p-2 rounded-full hover:bg-[#075E54] text-[#ECE5DD] hover:text-white"
+                className="p-2 rounded-full hover:bg-[#494a4a] text-[#ECE5DD] hover:text-white"
                 onClick={() => setShowProfileMenu(!showProfileMenu)}
               >
-                <MoreVertical size={18} />
+                <MoreVertical size={18} className="cursor-pointer" />
               </button>
             </div>
           </div>
 
           {showProfileMenu && (
-            <div className="absolute top-16 right-4 bg-[#075E54] rounded-md shadow-lg py-1 z-50 min-w-[180px] border border-[#128C7E]">
+            <div className="absolute top-16 right-4 bg-[#161717] rounded-2xl shadow-lg py-1 z-50 min-w-[180px] border border-[#2d2e2e]">
               {menuItems.map((item, index) => (
                 <button
                   key={index}
@@ -144,7 +192,7 @@ const AppMain = () => {
                     item.action();
                     setShowProfileMenu(false);
                   }}
-                  className="w-full px-4 py-2.5 flex items-center space-x-3 hover:bg-[#128C7E] text-white text-sm cursor-pointer"
+                  className="w-full px-4 py-2.5 flex items-center space-x-3 hover:bg-white/15 text-white text-sm cursor-pointer"
                 >
                   <item.icon size={16} />
                   <span>{item.label}</span>
@@ -153,7 +201,8 @@ const AppMain = () => {
             </div>
           )}
 
-          <div className="px-3 py-2 bg-[#161717]">
+          {/* Search Input */}
+          <div className="px-3 py-2 bg-[#161717] relative">
             <div className="flex items-center bg-[#2a2f32] rounded-full px-4 py-2 border-2 border-transparent hover:border-white/25 focus-within:border-[#25D366] focus-within:bg-[#161717]">
               <Search className="w-4 h-4 text-[#8696a0] mr-4" />
               <input
@@ -172,8 +221,38 @@ const AppMain = () => {
                 </button>
               )}
             </div>
+
+            {/* Search Results Dropdown */}
+            {searchResults.length > 0 && (
+              <div className="absolute z-50 bg-[#1f2a30] mt-2 w-full rounded-xl shadow-lg max-h-64 overflow-y-auto">
+                {searchResults.map((u) => (
+                  <div
+                    key={u._id}
+                    onClick={() => handleUserClick(u)}
+                    className="px-4 py-3 hover:bg-[#2c393e] cursor-pointer text-white"
+                  >
+                    <div className="flex items-center gap-3">
+                      {u.profilePic ? (
+                        <img
+                          src={u.profilePic}
+                          alt={u.name}
+                          className="w-8 h-8 rounded-full object-cover"
+                        />
+                      ) : (
+                        <UserCircle className="w-8 h-8 text-[#8696a0]" />
+                      )}
+                      <div>
+                        <p className="font-medium">{u.name}</p>
+                        <p className="text-xs text-[#8696a0]">{u.phone}</p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
+          {/* Tabs */}
           <div className="px-3 pb-1 bg-[#161717]">
             <div className="flex gap-2">
               {tabs.map((tab) => (
@@ -192,6 +271,7 @@ const AppMain = () => {
             </div>
           </div>
 
+          {/* Empty Chat Notice */}
           <div className="flex-1 flex flex-col items-center justify-center px-8 text-center">
             <p className="text-[#ECE5DD] text-sm mb-2">No chats</p>
             <button className="text-[#25D366] text-sm hover:underline cursor-pointer">
@@ -201,10 +281,14 @@ const AppMain = () => {
         </div>
       )}
 
-      {/* Right Section */}
+      {/* Right Side / Chat or Profile */}
       {isProfilePage ? (
         <div className="flex-1 bg-[#161717] overflow-y-auto">
           <Outlet />
+        </div>
+      ) : selectedChat ? (
+        <div className="flex-1 bg-[#161717] flex flex-col">
+          <ChatBox />
         </div>
       ) : (
         <div className="flex-1 bg-[#161717] flex flex-col items-center justify-center px-6">
@@ -223,7 +307,7 @@ const AppMain = () => {
               Make calls, share your screen and get a faster experience when you
               download the Windows app.
             </p>
-            <button className="bg-[#048d36] text-white font-medium px-5 py-3 rounded-full shadow-lg hover:shadow-xl cursor-pointer">
+            <button className="bg-[#03b544] text-white font-medium px-5 py-2 rounded-full shadow-lg hover:shadow-xl cursor-pointer">
               Download
             </button>
             <div className="flex items-center justify-center text-[#ECE5DD] text-sm mt-12">

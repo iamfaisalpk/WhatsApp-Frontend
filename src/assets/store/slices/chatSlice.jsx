@@ -13,7 +13,6 @@ export const accessChat = createAsyncThunk(
 }
 );
 
-// Get all chats of user
 export const fetchChats = createAsyncThunk(
     'chat/fetchChats',
     async (_, { rejectWithValue }) => {
