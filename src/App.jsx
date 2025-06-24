@@ -8,9 +8,11 @@ import { useSelector, useDispatch } from "react-redux";
 import WhatsAppAuth from "./assets/Components/WhatsAppAuth/WhatsAppAuth";
 import ProtectedRoute from "./assets/Components/ProtectedRoute";
 import AppMain from "./assets/Pages/AppMain";
-import Chat from "./assets/Pages/Chat";
 import ProfileSetup from "./assets/Pages/ProfileSetup";
+import ChatWindow from "./assets/Components/chat/ChatWindow";
 import { setAuth } from "./assets/store/slices/authSlice";
+import UserProfile from "./assets/Pages/UserProfile";
+
 
 const router = createBrowserRouter([
   { path: "/", element: <Navigate to="/auth" replace /> },
@@ -22,7 +24,10 @@ const router = createBrowserRouter([
       {
         path: "/app",
         element: <AppMain />,
-        children: [{ path: "chats/:chatId", element: <Chat /> }],
+        children: [
+          { path: "chats/:chatId", element: <ChatWindow /> },
+          { path : "profile", element : <UserProfile/>}
+        ],
       },
     ],
   },
@@ -30,7 +35,6 @@ const router = createBrowserRouter([
 
 const App = () => {
   const dispatch = useDispatch();
-  // const { token,  } = useSelector((state) => state.auth);
 
   useEffect(() => {
   const storedToken = localStorage.getItem("authToken");

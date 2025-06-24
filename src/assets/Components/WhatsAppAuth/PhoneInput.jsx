@@ -143,7 +143,7 @@ const PhoneInputComponent = ({ setStep }) => {
 
         // Clean phone number - remove all non-digits
         const rawPhone = phoneNumber.replace(/\D/g, '');
-        console.log("🔢 Raw Phone (digits only):", rawPhone);
+        console.log("Raw Phone (digits only):", rawPhone);
 
         // Validate number length
         // For Indian numbers: country code (91) + 10 digits = 12 total
@@ -160,18 +160,18 @@ const PhoneInputComponent = ({ setStep }) => {
         // react-phone-input-2 already includes the country code
         const cleanPhone = rawPhone.startsWith('91') ? `+${rawPhone}` : `+91${rawPhone}`;
         
-        console.log("📞 Final Phone Number:", cleanPhone);
+        console.log(" Final Phone Number:", cleanPhone);
 
         // Dispatch the OTP request
         dispatch(sendOTP({ phone: cleanPhone }))
             .unwrap()
             .then(() => {
-                console.log("✅ OTP sent successfully");
+                console.log(" OTP sent successfully");
                 // You might want to proceed to next step here
                 // setStep('otp');
             })
             .catch((error) => {
-                console.error("❌ OTP sending failed:", error);
+                console.error(" OTP sending failed:", error);
             });
     };
 
@@ -210,7 +210,7 @@ const PhoneInputComponent = ({ setStep }) => {
                     country={'in'}
                     value={phoneNumber}
                     onChange={(value, country) => {
-                        console.log("📱 Phone changed:", value, "Country:", country);
+                        console.log(" Phone changed:", value, "Country:", country);
                         dispatch(setPhoneNumber(value));
                         dispatch(setCountryCode(country.countryCode));
                     }}

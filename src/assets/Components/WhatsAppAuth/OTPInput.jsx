@@ -127,7 +127,7 @@ return (
                 disabled={loading || isVerifying}
                 className={`w-10 h-12 border rounded text-center text-lg outline-none transition-colors
                 ${error ? 'border-red-300 bg-red-50' : 'border-gray-300'}
-                ${(loading || isVerifying || user || token) ? 'bg-gray-100 cursor-not-allowed' : 'focus:ring-2 focus:ring-[#25d366]'}
+                ${(loading || isVerifying || user || token) ? 'bg-gray-100 cursor-auto' : 'focus:ring-2 focus:ring-[#25d366]'}
                 `}
             />
             ))}

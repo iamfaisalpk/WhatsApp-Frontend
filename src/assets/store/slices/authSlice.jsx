@@ -189,6 +189,13 @@ const authSlice = createSlice({
       state.success = '';
       state.resendTimer = 0;
     },
+    updateProfilePic: (state, action) => {
+  if (state.user) {
+    state.user.profilePic = action.payload;
+    localStorage.setItem('user', JSON.stringify(state.user)); 
+  }
+},
+
   },
   extraReducers: (builder) => {
     builder
@@ -296,6 +303,7 @@ export const {
   setAuth,
   logoutUser,
   resetOtpState,
+  updateProfilePic
 } = authSlice.actions;
 
 export default authSlice.reducer;
