@@ -1,6 +1,5 @@
-// ✅ ChatInput.jsx
 import React, { useRef, useState, useEffect } from "react";
-import { Paperclip, Send, Mic, X } from "lucide-react";
+import { Paperclip, Send, Mic, X, CornerUpLeft } from "lucide-react";
 
 const ChatInput = ({
   newMessage,
@@ -10,6 +9,8 @@ const ChatInput = ({
   onSend,
   onTyping,
   onVoiceSend,
+  replyToMessage,
+  setReplyToMessage,
 }) => {
   const fileInputRef = useRef(null);
   const [isRecording, setIsRecording] = useState(false);
@@ -18,14 +19,20 @@ const ChatInput = ({
   const audioChunks = useRef([]);
   const intervalRef = useRef(null);
 
-  useEffect(() => {
-    return () => {
-      clearInterval(intervalRef.current);
-      if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
-        mediaRecorderRef.current.stop();
-      }
-    };
-  }, []);
+useEffect(() => {
+  return () => {
+    clearInterval(intervalRef.current);
+
+    if (
+      mediaRecorderRef.current &&
+      typeof mediaRecorderRef.current.stop === "function" &&
+      mediaRecorderRef.current.state !== "inactive"
+    ) {
+      mediaRecorderRef.current.stop();
+    }
+  };
+}, []); 
+
 
   const formatTime = (secs) => {
     const min = String(Math.floor(secs / 60)).padStart(2, "0");
@@ -86,6 +93,31 @@ const ChatInput = ({
 
   return (
     <div className="p-2 bg-[#1e1e1e] flex flex-col gap-2 z-50">
+      {/* ✅ Replying UI */}
+      {replyToMessage && (
+        <div className="flex items-center justify-between bg-[#2a2a2a] p-2 rounded-lg text-white">
+          <div className="flex items-start gap-2">
+            <CornerUpLeft size={16} className="mt-1 text-green-400" />
+            <div className="text-sm">
+              <span className="font-bold text-green-400">
+                Replying to {replyToMessage.sender?.name || "You"}
+              </span>
+              <div className="truncate max-w-[250px]">
+                {replyToMessage.text || "📎 Media/Voice Note"}
+              </div>
+            </div>
+          </div>
+          <button
+            onClick={() => setReplyToMessage(null)}
+            className="text-gray-400 hover:text-red-500"
+            title="Cancel reply"
+          >
+            <X size={16} />
+          </button>
+        </div>
+      )}
+
+      {/* ✅ Media preview */}
       {mediaFile && (
         <div className="flex items-center gap-3 bg-[#2b2b2b] text-white p-2 rounded-lg relative">
           <span className="text-sm font-medium truncate max-w-[70%]">
@@ -101,12 +133,14 @@ const ChatInput = ({
         </div>
       )}
 
+      {/* ✅ Voice recording indicator */}
       {isRecording && (
         <div className="text-blue-400 text-sm font-mono pl-1 animate-pulse">
           🎙️ Recording... {formatTime(recordTime)}
         </div>
       )}
 
+      {/* ✅ Main input area */}
       <div className="flex items-center gap-2">
         <button
           onClick={() => fileInputRef.current.click()}
@@ -156,3 +190,4 @@ const ChatInput = ({
 };
 
 export default ChatInput;
+

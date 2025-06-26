@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import {
   ArrowLeft,
@@ -20,6 +20,20 @@ const ChatHeader = ({ onBack, onSearch, onClearLocalMessages }) => {
 
   const [showOptions, setShowOptions] = useState(false);
   const [showSearchBox, setShowSearchBox] = useState(false);
+  const menuRef = useRef();
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (menuRef.current && !menuRef.current.contains(event.target)) {
+        setShowOptions(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
 
   const otherUser = selectedChat?.members?.find(
     (user) => user._id !== currentUser?._id
@@ -71,7 +85,9 @@ const ChatHeader = ({ onBack, onSearch, onClearLocalMessages }) => {
         </div>
 
         <div className="leading-4">
-          <div className="font-medium text-sm">{otherUser?.name || "Unknown"}</div>
+          <div className="font-medium text-sm">
+            {otherUser?.name || "Unknown"}
+          </div>
           <div className="text-xs text-[#8696a0]">online</div>
         </div>
       </div>
@@ -79,11 +95,12 @@ const ChatHeader = ({ onBack, onSearch, onClearLocalMessages }) => {
       <div className="flex items-center space-x-4 relative">
         <Video className="w-5 h-5 cursor-pointer text-[#8696a0]" />
         <Phone className="w-5 h-5 cursor-pointer text-[#8696a0]" />
-        <div className="relative">
+        <div className="relative" ref={menuRef}>
           <MoreVertical
             className="w-5 h-5 cursor-pointer text-[#8696a0]"
             onClick={() => setShowOptions((prev) => !prev)}
           />
+
           {showOptions && (
             <div className="absolute right-0 mt-1 w-40 bg-[#233138] rounded-md shadow-lg z-20">
               <button
