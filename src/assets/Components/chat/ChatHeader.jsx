@@ -11,15 +11,15 @@ import {
 } from "lucide-react";
 import instance from "../../Services/axiosInstance";
 import { setSelectedChat, fetchChats } from "../../store/slices/chatSlice";
-import ChatSearch from "./ChatSearch"; 
+import ChatSearch from "./ChatSearch";
 
-const ChatHeader = ({ onBack, onSearch }) => {
+const ChatHeader = ({ onBack, onSearch, onClearLocalMessages }) => {
   const dispatch = useDispatch();
   const { selectedChat } = useSelector((s) => s.chat);
   const { user: currentUser } = useSelector((s) => s.auth);
 
   const [showOptions, setShowOptions] = useState(false);
-  const [showSearchBox, setShowSearchBox] = useState(false); 
+  const [showSearchBox, setShowSearchBox] = useState(false);
 
   const otherUser = selectedChat?.members?.find(
     (user) => user._id !== currentUser?._id
@@ -31,8 +31,9 @@ const ChatHeader = ({ onBack, onSearch }) => {
       await instance.delete(`/api/chats/${selectedChat._id}`);
       dispatch(setSelectedChat(null));
       dispatch(fetchChats());
+      setShowOptions(false);
     } catch (error) {
-      console.error(" Delete chat failed:", error);
+      console.error("Delete chat failed:", error);
     }
   };
 
@@ -40,9 +41,11 @@ const ChatHeader = ({ onBack, onSearch }) => {
     if (!selectedChat?._id) return;
     try {
       await instance.delete(`/api/messages/clear/${selectedChat._id}`);
+      if (onClearLocalMessages) onClearLocalMessages(); // ✅ clear from ChatBox state
       dispatch(fetchChats());
+      setShowOptions(false);
     } catch (error) {
-      console.error(" Clear chat failed:", error);
+      console.error("Clear chat failed:", error);
     }
   };
 
@@ -79,7 +82,7 @@ const ChatHeader = ({ onBack, onSearch }) => {
         <div className="relative">
           <MoreVertical
             className="w-5 h-5 cursor-pointer text-[#8696a0]"
-            onClick={() => setShowOptions(!showOptions)}
+            onClick={() => setShowOptions((prev) => !prev)}
           />
           {showOptions && (
             <div className="absolute right-0 mt-1 w-40 bg-[#233138] rounded-md shadow-lg z-20">
@@ -110,7 +113,6 @@ const ChatHeader = ({ onBack, onSearch }) => {
           )}
         </div>
 
-        {/*  Render Search Box if triggered */}
         {showSearchBox && (
           <ChatSearch
             onSearch={(text) => {
