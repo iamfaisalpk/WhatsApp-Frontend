@@ -9,6 +9,7 @@ import { MoreVertical } from "lucide-react";
 import ChatHeader from "./ChatHeader";
 import ChatInput from "./ChatInput";
 
+
 const ChatBox = () => {
   const { selectedChat } = useSelector((s) => s.chat);
   const { user } = useSelector((s) => s.auth);
@@ -25,6 +26,43 @@ const ChatBox = () => {
 
   const otherUser =
     selectedChat?.members?.find((u) => u._id !== user._id) || {};
+
+  const markChatAsSeen = async () => {
+    if (!selectedChat?._id) return;
+
+    try {
+      // ✅ API call to mark messages seen
+      await instance.post("/api/messages/mark-seen", {
+        conversationId: selectedChat._id,
+      });
+
+      // ✅ Emit to socket for real-time update
+      socket.emit("message-seen", {
+        conversationId: selectedChat._id,
+        userId: user._id,
+      });
+    } catch (err) {
+      console.error("Mark as seen error:", err.message);
+    }
+  };
+
+  useEffect(() => {
+  const handleSeenUpdate = ({ conversationId, seenBy }) => {
+    if (conversationId !== selectedChat?._id) return;
+
+    setMessages((prev) =>
+      prev.map((m) =>
+        m.seenBy?.includes(seenBy)
+          ? m
+          : { ...m, seenBy: [...(m.seenBy || []), seenBy] }
+      )
+    );
+  };
+
+  socket.on("seen-update", handleSeenUpdate);
+  return () => socket.off("seen-update", handleSeenUpdate);
+}, [selectedChat]);
+
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -50,6 +88,7 @@ const ChatBox = () => {
           _clientKey: msg._id || uuidv4(),
         }));
         setMessages(messagesWithKeys);
+        markChatAsSeen(); // ✅ Mark as seen after load
       })
       .catch(() => setMessages([]));
 
@@ -133,51 +172,50 @@ const ChatBox = () => {
   };
 
   const handleSend = () => {
-  if (!newMessage.trim() && !mediaFile) return;
+    if (!newMessage.trim() && !mediaFile) return;
 
-  const tempId = uuidv4();
+    const tempId = uuidv4();
 
-  const optimisticMessage = {
-    _clientKey: tempId,
-    tempId,
-    text: newMessage.trim(),
-    media: mediaFile ? { type: "uploading", url: "" } : null,
-    voiceNote: null,
-    sender: { _id: user._id },
-    createdAt: new Date().toISOString(),
-    seenBy: [user._id],
-    replyTo: replyToMessage || null,
+    const optimisticMessage = {
+      _clientKey: tempId,
+      tempId,
+      text: newMessage.trim(),
+      media: mediaFile ? { type: "uploading", url: "" } : null,
+      voiceNote: null,
+      sender: { _id: user._id },
+      createdAt: new Date().toISOString(),
+      seenBy: [user._id],
+      replyTo: replyToMessage || null,
+    };
+
+    setMessages((prev) => [...prev, optimisticMessage]);
+    setNewMessage("");
+    setMediaFile(null);
+    setReplyToMessage(null);
+
+    const messagePayload = {
+      conversationId: selectedChat._id,
+      senderId: user._id,
+      text: newMessage.trim(),
+      replyTo: replyToMessage,
+      tempId,
+    };
+
+    const formData = new FormData();
+    formData.append("conversationId", selectedChat._id);
+    formData.append("tempId", tempId);
+    if (mediaFile) formData.append("media", mediaFile);
+    if (newMessage.trim()) formData.append("text", newMessage.trim());
+    if (replyToMessage) formData.append("replyTo", replyToMessage._id);
+
+    instance
+      .post("/api/messages", formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      })
+      .catch((err) =>
+        console.error("Send error:", err?.response?.data || err.message)
+      );
   };
-
-  setMessages((prev) => [...prev, optimisticMessage]);
-  setNewMessage("");
-  setMediaFile(null);
-  setReplyToMessage(null);
-
-  const messagePayload = {
-    conversationId: selectedChat._id,
-    senderId: user._id,
-    text: newMessage.trim(),
-    replyTo: replyToMessage,
-    tempId,
-  };
-
-  const formData = new FormData();
-  formData.append("conversationId", selectedChat._id);
-  formData.append("tempId", tempId);
-  if (mediaFile) formData.append("media", mediaFile);
-  if (newMessage.trim()) formData.append("text", newMessage.trim());
-  if (replyToMessage) formData.append("replyTo", replyToMessage._id);
-
-  instance
-    .post("/api/messages", formData, {
-      headers: { "Content-Type": "multipart/form-data" },
-    })
-    .catch((err) =>
-      console.error("Send error:", err?.response?.data || err.message)
-    );
-};
-
 
   const handleVoiceSend = async (voiceBlob, duration) => {
     const tempId = uuidv4();

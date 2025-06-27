@@ -91,6 +91,43 @@ export const deleteChat = createAsyncThunk(
 }
 );
 
+export const toggleFavorite = createAsyncThunk(
+    'chat/toggleFavorite',
+    async (chatId, { rejectWithValue }) => {
+    try {
+        await axios.post('/api/chat-meta/toggle-favorite', { chatId });
+        return chatId;
+    } catch (err) {
+        return rejectWithValue(err.response?.data?.message);
+    }
+}
+);
+
+export const markAsRead = createAsyncThunk(
+    'chat/markAsRead',
+    async (chatId, { rejectWithValue }) => {
+    try {
+        await axios.post('/api/chat-meta/mark-as-read', { chatId });
+        return chatId;
+    } catch (err) {
+        return rejectWithValue(err.response?.data?.message);
+    }
+}
+);
+
+export const markAsUnread = createAsyncThunk(
+    'chat/markAsUnread',
+    async (chatId, { rejectWithValue }) => {
+    try {
+        await axios.post('/api/chat-meta/mark-as-unread', { chatId });
+        return chatId;
+    } catch (err) {
+        return rejectWithValue(err.response?.data?.message);
+    }
+}
+);
+
+
 
 const chatSlice = createSlice({
     name: 'chat',
@@ -106,6 +143,13 @@ reducers: {
     },
     clearChatError: (state) => {
         state.error = null;
+    },
+    updateSeenBy: (state, action) => {
+    const { conversationId, seenBy } = action.payload;
+    const chat = state.chats.find((c) => c._id === conversationId);
+    if (chat && !chat.seenBy?.includes(seenBy)) {
+        chat.seenBy = [...(chat.seenBy || []), seenBy];
+        }
     },
 },
 extraReducers: (builder) => {
@@ -164,10 +208,35 @@ extraReducers: (builder) => {
 
     .addCase(deleteChat.fulfilled, (state, action) => {
         state.chats = state.chats.filter(c => c._id !== action.payload);
-    });
+    })
+    
+        .addCase(toggleFavorite.fulfilled, (state, action) => {
+            const chatId = action.payload;
+            const chat = state.chats.find(c => c._id === chatId);
+            if (chat) {
+            chat.isFavorite = !chat.isFavorite;
+            }
+            })
+
+//  Mark As Read
+.addCase(markAsRead.fulfilled, (state, action) => {
+    const chat = state.chats.find(c => c._id === action.payload);
+    if (chat) {
+    chat.isRead = true;
+}
+})
+
+//  Mark As Unread
+.addCase(markAsUnread.fulfilled, (state, action) => {
+    const chat = state.chats.find(c => c._id === action.payload);
+    if (chat) {
+    chat.isRead = false;
+}
+})
+
 
 },
 });
 
-export const { setSelectedChat, clearChatError } = chatSlice.actions;
+export const { setSelectedChat, clearChatError, updateSeenBy } = chatSlice.actions;
 export default chatSlice.reducer;

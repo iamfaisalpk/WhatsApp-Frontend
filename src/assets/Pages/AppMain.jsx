@@ -31,7 +31,7 @@ const AppMain = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const location = useLocation();
-  const {selectedChat} = useSelector((state)=> state.chat)
+  const { selectedChat, chats } = useSelector((state) => state.chat);
 
   const isProfilePage = location.pathname === "/app/profile";
 
@@ -67,15 +67,14 @@ const AppMain = () => {
   };
 
   useEffect(() => {
-  const handleEsc = (e) => {
-    if (e.key === "Escape") {
-      dispatch(setSelectedChat(null));
-    }
-  };
-  window.addEventListener("keydown", handleEsc);
-  return () => window.removeEventListener("keydown", handleEsc);
-}, [dispatch]);
-
+    const handleEsc = (e) => {
+      if (e.key === "Escape") {
+        dispatch(setSelectedChat(null));
+      }
+    };
+    window.addEventListener("keydown", handleEsc);
+    return () => window.removeEventListener("keydown", handleEsc);
+  }, [dispatch]);
 
   const tabs = [
     { id: "All", label: "All" },
@@ -271,12 +270,56 @@ const AppMain = () => {
             </div>
           </div>
 
-          {/* Empty Chat Notice */}
-          <div className="flex-1 flex flex-col items-center justify-center px-8 text-center">
-            <p className="text-[#ECE5DD] text-sm mb-2">No chats</p>
-            <button className="text-[#25D366] text-sm hover:underline cursor-pointer">
-              View all chats
-            </button>
+          {/* Chat List Rendering */}
+          <div className="flex-1 overflow-y-auto bg-[#161717]">
+            {chats
+              .filter((chat) => {
+                if (activeTab === "Unread") {
+                  return chat.unreadCount > 0;
+                } else if (activeTab === "Favorites") {
+                  return chat.isFavorite;
+                } else if (activeTab === "Groups") {
+                  return chat.isGroupChat;
+                }
+                return true;
+              })
+              .map((chat) => {
+                const otherUser = chat.members.find((m) => m._id !== user._id);
+                return (
+                  <div
+                    key={chat._id}
+                    onClick={() => dispatch(setSelectedChat(chat))}
+                    className={`flex items-center px-4 py-3 cursor-pointer hover:bg-[#202c33] ${
+                      selectedChat?._id === chat._id ? "bg-[#202c33]" : ""
+                    }`}
+                  >
+                    <div className="w-10 h-10 rounded-full overflow-hidden bg-gray-700">
+                      {otherUser?.profilePic ? (
+                        <img
+                          src={otherUser.profilePic}
+                          alt={otherUser.name}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-sm bg-[#2a3942] text-gray-300">
+                          {otherUser?.name?.charAt(0).toUpperCase() || "?"}
+                        </div>
+                      )}
+                    </div>
+                    <div className="ml-3 flex flex-col text-white">
+                      <span className="font-medium text-sm">
+                        {otherUser?.name}
+                      </span>
+                      <span className="text-xs text-[#8696a0] truncate w-48">
+                        {chat.lastMessage?.text ||
+                          (chat.lastMessage?.media
+                            ? "📎 Media"
+                            : "Say hello 👋")}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
           </div>
         </div>
       )}

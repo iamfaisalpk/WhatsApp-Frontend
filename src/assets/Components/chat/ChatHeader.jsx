@@ -12,6 +12,7 @@ import {
 import instance from "../../Services/axiosInstance";
 import { setSelectedChat, fetchChats } from "../../store/slices/chatSlice";
 import ChatSearch from "./ChatSearch";
+import socket from "../../../../utils/socket";
 
 const ChatHeader = ({ onBack, onSearch, onClearLocalMessages }) => {
   const dispatch = useDispatch();
@@ -20,7 +21,14 @@ const ChatHeader = ({ onBack, onSearch, onClearLocalMessages }) => {
 
   const [showOptions, setShowOptions] = useState(false);
   const [showSearchBox, setShowSearchBox] = useState(false);
+  const [isOnline, setIsOnline] = useState(false);
+  const [lastSeen, setLastSeen] = useState(null);
+
   const menuRef = useRef();
+
+  const otherUser = selectedChat?.members?.find(
+    (user) => user._id !== currentUser?._id
+  );
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -28,16 +36,45 @@ const ChatHeader = ({ onBack, onSearch, onClearLocalMessages }) => {
         setShowOptions(false);
       }
     };
-
     document.addEventListener("mousedown", handleClickOutside);
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
+    return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const otherUser = selectedChat?.members?.find(
-    (user) => user._id !== currentUser?._id
-  );
+  // ✅ Real-time online/offline status
+  useEffect(() => {
+    if (!otherUser?._id) return;
+
+    const checkOnlineStatus = async () => {
+      try {
+        const res = await instance.get(`/api/users/${otherUser._id}`);
+        setIsOnline(res.data.isOnline);
+        setLastSeen(res.data.lastSeen);
+      } catch (error) {
+        console.error("❌ Failed to get user status:", error);
+      }
+    };
+
+    checkOnlineStatus();
+
+    const updateOnline = (userId) => {
+      if (userId === otherUser._id) setIsOnline(true);
+    };
+
+    const updateOffline = ({ userId, lastSeen }) => {
+      if (userId === otherUser._id) {
+        setIsOnline(false);
+        setLastSeen(lastSeen);
+      }
+    };
+
+    socket.on("user-online", updateOnline);
+    socket.on("user-offline", updateOffline);
+
+    return () => {
+      socket.off("user-online", updateOnline);
+      socket.off("user-offline", updateOffline);
+    };
+  }, [otherUser]);
 
   const handleDeleteChat = async () => {
     if (!selectedChat?._id) return;
@@ -55,12 +92,21 @@ const ChatHeader = ({ onBack, onSearch, onClearLocalMessages }) => {
     if (!selectedChat?._id) return;
     try {
       await instance.delete(`/api/messages/clear/${selectedChat._id}`);
-      if (onClearLocalMessages) onClearLocalMessages(); // ✅ clear from ChatBox state
+      if (onClearLocalMessages) onClearLocalMessages();
       dispatch(fetchChats());
       setShowOptions(false);
     } catch (error) {
       console.error("Clear chat failed:", error);
     }
+  };
+
+  const formatLastSeen = (timestamp) => {
+    if (!timestamp) return "";
+    const date = new Date(timestamp);
+    return `last seen at ${date.toLocaleTimeString([], {
+      hour: "2-digit",
+      minute: "2-digit",
+    })}`;
   };
 
   return (
@@ -88,7 +134,9 @@ const ChatHeader = ({ onBack, onSearch, onClearLocalMessages }) => {
           <div className="font-medium text-sm">
             {otherUser?.name || "Unknown"}
           </div>
-          <div className="text-xs text-[#8696a0]">online</div>
+          <div className="text-xs text-[#8696a0]">
+            {isOnline ? "online" : formatLastSeen(lastSeen)}
+          </div>
         </div>
       </div>
 
