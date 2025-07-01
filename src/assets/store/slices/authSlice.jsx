@@ -1,4 +1,5 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
+import socket from "../../../../utils/socket";
 const baseURL = import.meta.env.VITE_API_URL;
 
 const tokenFromStorage = localStorage.getItem("authToken");
@@ -18,10 +19,12 @@ const initialState = {
   sessionId: "",
   debugInfo: "",
   generatedOtpForTest: "",
-  user: null,
+  user: userFromStorage,
   isAuthLoaded: false,
   token: tokenFromStorage,
   refreshToken: refreshTokenFromStorage,
+  sessionExpired: false,
+  sessionRestoring: false,
 };
 
 const formatPhoneNumber = (countryCode, phoneNumber) => {
@@ -45,7 +48,7 @@ export const refreshAccessToken = createAsyncThunk(
         });
       }
 
-      const response = await fetch(`${baseURL}/api/token/refresh`, {
+      const response = await fetch(`${baseURL}/api/auth/refresh-token`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -202,6 +205,18 @@ export const testConnection = createAsyncThunk(
   }
 );
 
+export const rehydrateAuthFromStorage = () => (dispatch) => {
+  const token = localStorage.getItem("authToken");
+  const refreshToken = localStorage.getItem("refreshToken");
+  const user = JSON.parse(localStorage.getItem("user"));
+
+  if (token && user && refreshToken) {
+    dispatch(setAuth({ token, user, refreshToken }));
+    socket.auth = { token };
+    socket.connect();
+  }
+};
+
 const authSlice = createSlice({
   name: "auth",
   initialState,
@@ -209,45 +224,61 @@ const authSlice = createSlice({
     setAuth: (state, action) => {
       state.token = action.payload.token;
       state.user = action.payload.user;
+      state.refreshToken = action.payload.refreshToken;
       state.isAuthLoaded = true;
-      if (state.token) {
-        localStorage.setItem("authToken", state.token);
-      }
-      if (state.user) {
-        localStorage.setItem("user", JSON.stringify(state.user));
+
+      if (state.token) localStorage.setItem("authToken", state.token);
+      if (state.refreshToken)
+        localStorage.setItem("refreshToken", state.refreshToken);
+      if (state.user) localStorage.setItem("user", JSON.stringify(state.user));
+
+      if (action.payload.token) {
+        socket.auth = { token: action.payload.token };
+        socket.connect();
       }
     },
+
     setCurrentStep: (state, action) => {
       state.currentStep = action.payload;
     },
+
     setPhoneNumber: (state, action) => {
       state.phoneNumber = action.payload;
     },
+
     setCountryCode: (state, action) => {
       state.countryCode = action.payload;
     },
+
     setOtp: (state, action) => {
       state.otp = action.payload;
     },
+
     setResendTimer: (state, action) => {
       state.resendTimer = action.payload;
     },
+
     clearMessages: (state) => {
       state.error = "";
       state.success = "";
       state.debugInfo = "";
     },
+
     setOtpAndClear: (state, action) => {
       state.otp = action.payload;
       state.error = "";
       state.success = "";
       state.debugInfo = "";
     },
+
     setUser: (state, action) => {
       state.user = action.payload;
       localStorage.setItem("user", JSON.stringify(action.payload));
     },
+
     logoutUser: (state) => {
+      socket.disconnect();
+
       state.user = null;
       state.token = null;
       state.sessionId = "";
@@ -255,6 +286,8 @@ const authSlice = createSlice({
       state.otp = "";
       state.success = "";
       state.error = "";
+      state.sessionExpired = false;
+
       localStorage.removeItem("authToken");
       localStorage.removeItem("refreshToken");
       localStorage.removeItem("user");
@@ -268,13 +301,30 @@ const authSlice = createSlice({
       state.success = "";
       state.resendTimer = 0;
     },
+
     updateProfilePic: (state, action) => {
       if (state.user) {
         state.user.profilePic = action.payload;
         localStorage.setItem("user", JSON.stringify(state.user));
       }
     },
+
+    setSessionExpired: (state, action) => {
+      state.sessionExpired = action.payload;
+      state.user = null;
+      state.token = null;
+      state.refreshToken = null;
+
+      localStorage.removeItem("authToken");
+      localStorage.removeItem("refreshToken");
+      localStorage.removeItem("user");
+    },
+
+    setSessionRestoring: (state, action) => {
+      state.sessionRestoring = action.payload;
+    },
   },
+
   extraReducers: (builder) => {
     builder
       .addCase(sendOTP.pending, (state) => {
@@ -337,13 +387,10 @@ const authSlice = createSlice({
         state.success = "";
       })
 
-      .addCase(refreshAccessToken.fulfilled, (state, action) => {
-        state.token = action.payload;
-        state.success = "Access token refreshed";
-      })
       .addCase(refreshAccessToken.rejected, (state, action) => {
         state.token = null;
         localStorage.removeItem("authToken");
+        localStorage.removeItem("refreshToken");
         state.error = action.payload?.message || "Failed to refresh token";
       })
 
@@ -381,6 +428,19 @@ const authSlice = createSlice({
       })
       .addCase(testConnection.rejected, (state, action) => {
         state.error = "Cannot connect to backend server";
+      })
+
+      .addCase(refreshAccessToken.fulfilled, (state, action) => {
+        state.token = action.payload;
+        localStorage.setItem("authToken", action.payload);
+        state.success = "Access token refreshed";
+
+        socket.auth.token = action.payload;
+
+        if (socket.connected) {
+          socket.disconnect();
+        }
+        socket.connect();
       });
   },
 });
@@ -398,6 +458,8 @@ export const {
   logoutUser,
   resetOtpState,
   updateProfilePic,
+  setSessionExpired,
+  setSessionRestoring,
 } = authSlice.actions;
 
 export default authSlice.reducer;

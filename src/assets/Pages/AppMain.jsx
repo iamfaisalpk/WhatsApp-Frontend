@@ -20,6 +20,12 @@ import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { accessChat, setSelectedChat } from "../store/slices/chatSlice";
 import ChatBox from "../Components/chat/ChatBox";
 import instance from "../Services/axiosInstance";
+import {
+  logoutUser,
+  rehydrateAuthFromStorage,
+} from "../store/slices/authSlice";
+import { useRef } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 
 const AppMain = () => {
   const [activeTab, setActiveTab] = useState("All");
@@ -32,8 +38,26 @@ const AppMain = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { selectedChat, chats } = useSelector((state) => state.chat);
+  const menuRef = useRef();
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (menuRef.current && !menuRef.current.contains(event.target)) {
+        setShowProfileMenu(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
 
   const isProfilePage = location.pathname === "/app/profile";
+
+  useEffect(() => {
+    dispatch(rehydrateAuthFromStorage());
+  }, []);
 
   useEffect(() => {
     const fetchUsers = async () => {
@@ -45,11 +69,11 @@ const AppMain = () => {
         const { data } = await instance.get(`/api/users?search=${searchQuery}`);
         setSearchResults(data);
       } catch (err) {
-        console.log("Search error", err);
+        console.error("Search error", err);
       }
     };
 
-    const delayDebounce = setTimeout(fetchUsers, 500);
+    const delayDebounce = setTimeout(fetchUsers, 400);
     return () => clearTimeout(delayDebounce);
   }, [searchQuery]);
 
@@ -57,9 +81,9 @@ const AppMain = () => {
     try {
       const action = await dispatch(accessChat(selectedUser._id));
       if (accessChat.fulfilled.match(action)) {
-        navigate("/app");
         setSearchQuery("");
         setSearchResults([]);
+        navigate("/app");
       }
     } catch (err) {
       console.error("Error accessing chat", err);
@@ -97,7 +121,14 @@ const AppMain = () => {
     { icon: Archive, label: "Archived", action: () => {} },
     { icon: Bell, label: "Notifications", action: () => {} },
     { icon: Settings, label: "Settings", action: () => {} },
-    { icon: LogOut, label: "Log out", action: () => {} },
+    {
+      icon: LogOut,
+      label: "Log out",
+      action: () => {
+        dispatch(logoutUser());
+        navigate("/auth");
+      },
+    },
   ];
 
   return (
@@ -182,25 +213,35 @@ const AppMain = () => {
             </div>
           </div>
 
-          {showProfileMenu && (
-            <div className="absolute top-16 right-4 bg-[#161717] rounded-2xl shadow-lg py-1 z-50 min-w-[180px] border border-[#2d2e2e]">
-              {menuItems.map((item, index) => (
-                <button
-                  key={index}
-                  onClick={() => {
-                    item.action();
-                    setShowProfileMenu(false);
-                  }}
-                  className="w-full px-4 py-2.5 flex items-center space-x-3 hover:bg-white/15 text-white text-sm cursor-pointer"
-                >
-                  <item.icon size={16} />
-                  <span>{item.label}</span>
-                </button>
-              ))}
-            </div>
-          )}
+          <AnimatePresence>
+            {showProfileMenu && (
+              <motion.div
+                ref={menuRef}
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                transition={{ duration: 0.2 }}
+                className="absolute top-16 right-4 bg-[#161717] rounded-2xl shadow-lg py-1 z-50 min-w-[180px] border border-[#2d2e2e]"
+              >
+                {menuItems.map((item, index) => (
+                  <button
+                    key={index}
+                    onClick={() => {
+                      item.action();
+                      setShowProfileMenu(false);
+                    }}
+                    className="w-full px-4 py-2.5 flex items-center space-x-3 hover:bg-white/15 text-white text-sm cursor-pointer"
+                  >
+                    <item.icon size={16} />
+                    <span>{item.label}</span>
+                  </button>
+                ))}
+              </motion.div>
+            )}
+          </AnimatePresence>
 
           {/* Search Input */}
+          {/* 🔍 Search Input */}
           <div className="px-3 py-2 bg-[#161717] relative">
             <div className="flex items-center bg-[#2a2f32] rounded-full px-4 py-2 border-2 border-transparent hover:border-white/25 focus-within:border-[#25D366] focus-within:bg-[#161717]">
               <Search className="w-4 h-4 text-[#8696a0] mr-4" />
@@ -221,29 +262,27 @@ const AppMain = () => {
               )}
             </div>
 
-            {/* Search Results Dropdown */}
+            {/* 👥 Dropdown User List */}
             {searchResults.length > 0 && (
-              <div className="absolute z-50 bg-[#1f2a30] mt-2 w-full rounded-xl shadow-lg max-h-64 overflow-y-auto">
+              <div className="absolute z-50 bg-[#1f2a30] mt-2 w-full rounded-xl shadow-lg max-h-64 overflow-y-auto border border-white/10">
                 {searchResults.map((u) => (
                   <div
                     key={u._id}
                     onClick={() => handleUserClick(u)}
-                    className="px-4 py-3 hover:bg-[#2c393e] cursor-pointer text-white"
+                    className="px-4 py-3 hover:bg-[#2c393e] cursor-pointer text-white flex items-center gap-3"
                   >
-                    <div className="flex items-center gap-3">
-                      {u.profilePic ? (
-                        <img
-                          src={u.profilePic}
-                          alt={u.name}
-                          className="w-8 h-8 rounded-full object-cover"
-                        />
-                      ) : (
-                        <UserCircle className="w-8 h-8 text-[#8696a0]" />
-                      )}
-                      <div>
-                        <p className="font-medium">{u.name}</p>
-                        <p className="text-xs text-[#8696a0]">{u.phone}</p>
-                      </div>
+                    {u.profilePic ? (
+                      <img
+                        src={u.profilePic}
+                        alt={u.name}
+                        className="w-8 h-8 rounded-full object-cover"
+                      />
+                    ) : (
+                      <UserCircle className="w-8 h-8 text-[#8696a0]" />
+                    )}
+                    <div>
+                      <p className="font-medium">{u.name}</p>
+                      <p className="text-xs text-[#8696a0]">{u.phone}</p>
                     </div>
                   </div>
                 ))}

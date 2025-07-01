@@ -1,200 +1,315 @@
-// import React, { useEffect, useRef } from 'react';
+
+// import React, { useEffect, useRef, useCallback, useMemo } from 'react';
 // import { useSelector, useDispatch } from 'react-redux';
 // import { useNavigate } from 'react-router-dom';
 // import { FaWhatsapp, FaCheck, FaSpinner, FaExclamationCircle, FaCheckCircle } from 'react-icons/fa';
-// import { setCurrentStep, setOtp, setResendTimer, setOtpAndClear, sendOTP, verifyOTP, clearMessages, } from '../../store/slices/authSlice';
+// import { 
+//     setCurrentStep, 
+//     setOtp, 
+//     setResendTimer, 
+//     setOtpAndClear, 
+//     sendOTP, 
+//     verifyOTP, 
+//     clearMessages 
+// } from '../../store/slices/authSlice';
 
 // const OTPInput = () => {
 //     const dispatch = useDispatch();
 //     const navigate = useNavigate();
-//     const { phoneNumber, countryCode, otp, loading, isVerifying, error, success, resendTimer, generatedOtpForTest, user, token } = useSelector((state) => state.auth);
+//     const { 
+//         phoneNumber, 
+//         countryCode, 
+//         otp, 
+//         loading, 
+//         isVerifying, 
+//         error, 
+//         success, 
+//         resendTimer, 
+//         generatedOtpForTest, 
+//         user, 
+//         token 
+//     } = useSelector((state) => state.auth);
 
-//     useEffect(()=>{
-//         if (token){
-//             console.log("Token from OTPInput.jsx",token);
-//         }
-//     },[token])
-
+//     // Refs for managing state and preventing multiple operations
 //     const inputRefs = useRef([]);
 //     const hasNavigated = useRef(false);
 //     const verificationAttempted = useRef(false);
+//     const autoVerifyTimeoutRef = useRef(null);
+//     const loadingTimeoutRef = useRef(null);
 
-// useEffect(() => {
-//     let timer;
-//     if (resendTimer > 0) {
-//     timer = setTimeout(() => dispatch(setResendTimer(resendTimer - 1)), 1000);
-//     }
-//     return () => clearTimeout(timer);
-// }, [resendTimer, dispatch]);
+//     // Debug logging with better organization
+//     useEffect(() => {
+//         if (process.env.NODE_ENV === 'development') {
+//             console.log("🔄 OTP Component State:", {
+//                 otp: otp?.length || 0,
+//                 loading,
+//                 isVerifying,
+//                 hasToken: !!token,
+//                 hasUser: !!user,
+//                 verificationAttempted: verificationAttempted.current
+//             });
+//         }
+//     }, [otp, loading, isVerifying, token, user]);
 
+//     // Cleanup function for timeouts
+//     const cleanupTimeouts = useCallback(() => {
+//         if (autoVerifyTimeoutRef.current) {
+//             clearTimeout(autoVerifyTimeoutRef.current);
+//             autoVerifyTimeoutRef.current = null;
+//         }
+//         if (loadingTimeoutRef.current) {
+//             clearTimeout(loadingTimeoutRef.current);
+//             loadingTimeoutRef.current = null;
+//         }
+//     }, []);
 
-// useEffect(() => {
-//     let timeout;
-//     if (loading || isVerifying) {
-//     timeout = setTimeout(() => {
-//         dispatch(clearMessages());
-//         console.warn('Reset loading/isVerifying due to timeout');
-//     }, 10000);
-//     }
-//     return () => clearTimeout(timeout);
-// }, [loading, isVerifying, dispatch]);
+//     // Resend timer effect
+//     useEffect(() => {
+//         let timer;
+//         if (resendTimer > 0) {
+//             timer = setTimeout(() => dispatch(setResendTimer(resendTimer - 1)), 1000);
+//         }
+//         return () => clearTimeout(timer);
+//     }, [resendTimer, dispatch]);
 
+//     // Loading state timeout protection
+//     useEffect(() => {
+//         if (loading || isVerifying) {
+//             loadingTimeoutRef.current = setTimeout(() => {
+//                 console.warn("⏰ Resetting stuck loading states");
+//                 dispatch(clearMessages());
+//             }, 10000);
+//         } else {
+//             if (loadingTimeoutRef.current) {
+//                 clearTimeout(loadingTimeoutRef.current);
+//                 loadingTimeoutRef.current = null;
+//             }
+//         }
 
-// useEffect(() => {
-//     if (hasNavigated.current) return;
+//         return () => {
+//             if (loadingTimeoutRef.current) {
+//                 clearTimeout(loadingTimeoutRef.current);
+//                 loadingTimeoutRef.current = null;
+//             }
+//         };
+//     }, [loading, isVerifying, dispatch]);
 
-//     const isVerified = token && user && user.phone && !user.name && !user.profilePic;
+//     // Navigation effect - only when verification is complete
+//     useEffect(() => {
+//         if (hasNavigated.current) return;
 
-// if (isVerified) {
-//     hasNavigated.current = true;
-//     console.log("OTP verified & profile incomplete, navigating to /setup-profile");
-//     dispatch(setOtp(''));
-//     dispatch(clearMessages());
-//     navigate('/setup-profile', { replace: true });
-// }
-// }, [token, user, dispatch, navigate]);
+//         const isVerified = token && user && user.phone && !user.name && !user.profilePic;
 
+//         if (isVerified) {
+//             hasNavigated.current = true;
+//             console.log(" OTP verified, navigating to profile setup");
+            
+//             // Clean up before navigation
+//             cleanupTimeouts();
+//             dispatch(setOtp(''));
+//             dispatch(clearMessages());
+            
+//             navigate('/setup-profile', { replace: true });
+//         }
+//     }, [token, user, dispatch, navigate, cleanupTimeouts]);
 
-// const handleChange = (e, idx) => {
-//     console.log('handleChange:', e.target.value, idx); 
-//     const { value } = e.target;
-//     if (/^\d*$/.test(value)) {
+//     // Auto-verify when OTP is complete
+//     useEffect(() => {
+//         if (otp.length === 6 && !loading && !isVerifying && !verificationAttempted.current) {
+//             console.log(" Auto-verifying complete OTP");
+            
+//             autoVerifyTimeoutRef.current = setTimeout(() => {
+//                 verificationAttempted.current = true;
+//                 dispatch(verifyOTP());
+//             }, 500); 
+//         }
+
+//         return () => {
+//             if (autoVerifyTimeoutRef.current) {
+//                 clearTimeout(autoVerifyTimeoutRef.current);
+//                 autoVerifyTimeoutRef.current = null;
+//             }
+//         };
+//     }, [otp, loading, isVerifying, dispatch]);
+
+//     // Optimized input change handler
+//     const handleChange = useCallback((e, idx) => {
+//         const { value } = e.target;
+        
+//         if (!/^\d*$/.test(value)) return; // Only allow digits
+
 //         const updatedOtp = otp.substring(0, idx) + value + otp.substring(idx + 1);
 //         dispatch(setOtp(updatedOtp));
+
+//         // Clear errors when user starts typing
 //         if (error) {
+//             dispatch(clearMessages());
+//         }
+
+//         // Auto-focus next input
+//         if (value && idx < 5) {
+//             inputRefs.current[idx + 1]?.focus();
+//         }
+//     }, [otp, error, dispatch]);
+
+//     // Handle backspace navigation
+//     const handleKeyDown = useCallback((e, idx) => {
+//         if (e.key === 'Backspace' && !otp[idx] && idx > 0) {
+//             inputRefs.current[idx - 1]?.focus();
+//         }
+//     }, [otp]);
+
+//     // Manual verification
+//     const handleManualVerify = useCallback(() => {
+//         if (otp.length === 6 && !loading && !isVerifying) {
+//             console.log("🔧 Manual verification triggered");
+//             verificationAttempted.current = true;
+//             dispatch(verifyOTP());
+//         }
+//     }, [otp, loading, isVerifying, dispatch]);
+
+//     // Resend OTP
+//     const handleResend = useCallback(() => {
+//         console.log("📨 Resending OTP");
+//         verificationAttempted.current = false;
+//         cleanupTimeouts();
 //         dispatch(clearMessages());
-//     }
-//     if (value && idx < 5) {
-//         inputRefs.current[idx + 1].focus();
-//     }
-//     }
-// };
+//         dispatch(sendOTP());
+//     }, [dispatch, cleanupTimeouts]);
 
-// const handleKeyDown = (e, idx) => {
-//     if (e.key === 'Backspace' && !otp[idx] && idx > 0) {
-//         inputRefs.current[idx - 1].focus();
-//     }
-// };
+//     // Change phone number
+//     const handleChangePhoneNumber = useCallback(() => {
+//         console.log("📱 Changing phone number");
+//         hasNavigated.current = false;
+//         verificationAttempted.current = false;
+//         cleanupTimeouts();
+//         dispatch(setCurrentStep('phone'));
+//         dispatch(setOtpAndClear(''));
+//         dispatch(clearMessages());
+//     }, [dispatch, cleanupTimeouts]);
 
-// const handleManualVerify = () => {
-//     if (otp.length === 6 && !loading && !isVerifying) {
-//     verificationAttempted.current = true;
-//     dispatch(verifyOTP());
-// }
-// };
+//     // Memoized button disabled state
+//     const isVerifyDisabled = useMemo(() => 
+//         loading || isVerifying || otp.length !== 6,
+//         [loading, isVerifying, otp.length]
+//     );
 
+//     // Cleanup on unmount
+//     useEffect(() => {
+//         return () => {
+//             cleanupTimeouts();
+//         };
+//     }, [cleanupTimeouts]);
 
-// const handleResend = () => {
-//     verificationAttempted.current = false;
-//     dispatch(clearMessages());
-//     dispatch(sendOTP());
-// };
-
-
-// const handleChangePhoneNumber = () => {
-//     verificationAttempted.current = false;
-//     dispatch(setCurrentStep('phone'));
-//     dispatch(setOtpAndClear(''));
-//     dispatch(clearMessages());
-// };
-
-// return (
-//     <div className="min-h-screen bg-[#f0f2f5] flex flex-col items-center justify-center p-4">
-//         <div className="flex items-center space-x-2 mb-4">
-//         <div className="bg-[#25d366] p-2 rounded-full">
-//             <FaWhatsapp className="text-white text-lg" />
-//         </div>
-//         <h1 className="text-lg font-bold text-gray-800">WhatsApp</h1>
-//         </div>
-
-//         <div className="bg-white border border-gray-300 rounded-lg w-full max-w-sm p-6 shadow-sm">
-//         <h2 className="text-base font-semibold text-gray-800 text-center mb-2">Verify your phone number</h2>
-//         <p className="text-xs text-gray-600 text-center mb-4">
-//             Enter the 6-digit code sent to <span className="font-medium">{countryCode} {phoneNumber}</span>
-//         </p>
-
-//         <div className="flex justify-center space-x-2 mb-3">
-//             {Array.from({ length: 6 }).map((_, idx) => (
-//             <input
-//                 key={idx}
-//                 ref={(el) => (inputRefs.current[idx] = el)}
-//                 type="text"
-//                 inputMode="numeric"
-//                 maxLength="1"
-//                 value={otp[idx] || ''}
-//                 onChange={(e) => handleChange(e, idx)}
-//                 onKeyDown={(e) => handleKeyDown(e, idx)}
-//                 disabled={loading || isVerifying}
-//                 className={`w-10 h-12 border rounded text-center text-lg outline-none transition-colors
-//                 ${error ? 'border-red-300 bg-red-50' : 'border-gray-300'}
-//                 ${(loading || isVerifying || user || token) ? 'bg-gray-100 cursor-auto' : 'focus:ring-2 focus:ring-[#25d366]'}
-//                 `}
-//             />
-//             ))}
-//         </div>
-
-//         {error && (
-//             <div className="flex items-center bg-red-100 text-red-700 px-3 py-1.5 rounded mt-2 text-xs space-x-1">
-//             <FaExclamationCircle className="text-sm" />
-//             <span>{error}</span>
+//     return (
+//         <div className="min-h-screen bg-[#f0f2f5] flex flex-col items-center justify-center p-4">
+//             <div className="flex items-center space-x-2 mb-4">
+//                 <div className="bg-[#25d366] p-2 rounded-full">
+//                     <FaWhatsapp className="text-white text-lg" />
+//                 </div>
+//                 <h1 className="text-lg font-bold text-gray-800">WhatsApp</h1>
 //             </div>
-//         )}
-//         {success && success !== 'Login successful!' && (
-//             <div className="flex items-center bg-green-100 text-green-700 px-3 py-1.5 rounded mt-2 text-xs space-x-1">
-//             <FaCheckCircle className="text-sm" />
-//             <span>{success}</span>
+
+//             <div className="bg-white border border-gray-300 rounded-lg w-full max-w-sm p-6 shadow-sm">
+//                 <h2 className="text-base font-semibold text-gray-800 text-center mb-2">
+//                     Verify your phone number
+//                 </h2>
+//                 <p className="text-xs text-gray-600 text-center mb-4">
+//                     Enter the 6-digit code sent to <span className="font-medium">{countryCode} {phoneNumber}</span>
+//                 </p>
+
+//                 {/* OTP Input Grid */}
+//                 <div className="flex justify-center space-x-2 mb-3">
+//                     {Array.from({ length: 6 }).map((_, idx) => (
+//                         <input
+//                             key={idx}
+//                             ref={(el) => (inputRefs.current[idx] = el)}
+//                             type="text"
+//                             inputMode="numeric"
+//                             maxLength="1"
+//                             value={otp[idx] || ''}
+//                             onChange={(e) => handleChange(e, idx)}
+//                             onKeyDown={(e) => handleKeyDown(e, idx)}
+//                             disabled={loading || isVerifying}
+//                             className={`w-10 h-12 border rounded text-center text-lg outline-none transition-all duration-200
+//                                 ${error ? 'border-red-300 bg-red-50' : 'border-gray-300'}
+//                                 ${(loading || isVerifying) ? 'bg-gray-100 cursor-not-allowed' : 'focus:ring-2 focus:ring-[#25d366] focus:border-[#25d366]'}
+//                                 ${otp[idx] ? 'bg-green-50 border-green-300' : ''}
+//                             `}
+//                         />
+//                     ))}
+//                 </div>
+
+//                 {/* Error Message */}
+//                 {error && (
+//                     <div className="flex items-center bg-red-100 text-red-700 px-3 py-2 rounded-md mt-2 text-xs space-x-2">
+//                         <FaExclamationCircle className="text-sm flex-shrink-0" />
+//                         <span>{error}</span>
+//                     </div>
+//                 )}
+
+//                 {/* Success Message */}
+//                 {success && success !== 'Login successful!' && (
+//                     <div className="flex items-center bg-green-100 text-green-700 px-3 py-2 rounded-md mt-2 text-xs space-x-2">
+//                         <FaCheckCircle className="text-sm flex-shrink-0" />
+//                         <span>{success}</span>
+//                     </div>
+//                 )}
+
+//                 {/* Test OTP Display */}
+//                 {generatedOtpForTest && process.env.NODE_ENV === 'development' && (
+//                     <div className="mt-2 text-xs text-orange-600 bg-orange-100 px-3 py-2 rounded-md border border-orange-200">
+//                         <strong>Test OTP:</strong> {generatedOtpForTest}
+//                     </div>
+//                 )}
+
+//                 {/* Verify Button */}
+//                 <button
+//                     onClick={handleManualVerify}
+//                     disabled={isVerifyDisabled}
+//                     className="w-full bg-[#25d366] hover:bg-[#20c758] disabled:bg-gray-400 disabled:cursor-not-allowed text-white py-2.5 rounded-md font-medium flex items-center justify-center mt-4 transition-colors duration-200"
+//                 >
+//                     {(loading || isVerifying) ? (
+//                         <div className="flex items-center space-x-2">
+//                             <FaSpinner className="animate-spin text-sm" />
+//                             <span>Verifying...</span>
+//                         </div>
+//                     ) : (
+//                         <div className="flex items-center space-x-2">
+//                             <FaCheck className="text-sm" />
+//                             <span>Verify</span>
+//                         </div>
+//                     )}
+//                 </button>
+
+//                 {/* Action Buttons */}
+//                 <div className="text-center text-xs text-gray-500 mt-4 space-y-2">
+//                     <button
+//                         onClick={handleChangePhoneNumber}
+//                         disabled={loading || isVerifying}
+//                         className="text-[#25d366] hover:text-[#20c758] hover:underline font-medium disabled:text-gray-400 disabled:cursor-not-allowed transition-colors"
+//                     >
+//                         ← Change phone number
+//                     </button>
+                    
+//                     {resendTimer > 0 ? (
+//                         <p className="text-gray-400">Resend code in {resendTimer}s</p>
+//                     ) : (
+//                         <button
+//                             onClick={handleResend}
+//                             disabled={loading || isVerifying}
+//                             className="text-[#25d366] hover:text-[#20c758] hover:underline font-medium disabled:text-gray-400 disabled:cursor-not-allowed transition-colors"
+//                         >
+//                             Resend OTP
+//                         </button>
+//                     )}
+//                 </div>
 //             </div>
-//         )}
-
-//         {generatedOtpForTest && (
-//             <div className="mt-2 text-xs text-orange-600 bg-orange-100 px-2 py-1 rounded">
-//             Test OTP: {generatedOtpForTest}
-//             </div>
-//         )}
-
-//         <button
-//             onClick={handleManualVerify}
-//             disabled={loading || isVerifying || otp.length !== 6}
-//             className="w-full bg-[#25d366] hover:bg-[#20c758] disabled:bg-gray-400 text-white py-2.5 rounded-md font-medium flex items-center justify-center mt-4 transition-colors"
-//         >
-//             {(loading || isVerifying) ? (
-//             <FaSpinner className="animate-spin text-sm" />
-//         ) : (
-//             <>
-//                 <FaCheck className="text-sm mr-1" /> Verify
-//             </>
-//         )}
-//         </button>
-
-//         <div className="text-center text-xs text-gray-500 mt-4 space-y-1">
-//         <button
-//             onClick={handleChangePhoneNumber}
-//             disabled={loading || isVerifying}
-//             className="text-[#25d366] hover:underline font-medium disabled:text-gray-400"
-//         >
-//             <p>← Change phone number</p>
-//             </button>
-//             {resendTimer > 0 ? (
-//             <p>Resend code in {resendTimer}s</p>
-//         ) : (
-//             <button
-//                 onClick={handleResend}
-//                 disabled={loading || isVerifying}
-//                 className="text-[#25d366] hover:underline font-medium disabled:text-gray-400"
-//             >
-//                 Resend OTP
-//             </button>
-//             )}
 //         </div>
-//         </div>
-//     </div>
 //     );
 // };
 
 // export default OTPInput;
-
-
-
 
 
 import React, { useEffect, useRef, useCallback, useMemo } from 'react';
@@ -202,309 +317,257 @@ import { useSelector, useDispatch } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import { FaWhatsapp, FaCheck, FaSpinner, FaExclamationCircle, FaCheckCircle } from 'react-icons/fa';
 import { 
-    setCurrentStep, 
-    setOtp, 
-    setResendTimer, 
-    setOtpAndClear, 
-    sendOTP, 
-    verifyOTP, 
-    clearMessages 
+  setCurrentStep, 
+  setOtp, 
+  setResendTimer, 
+  setOtpAndClear, 
+  sendOTP, 
+  verifyOTP, 
+  clearMessages 
 } from '../../store/slices/authSlice';
 
 const OTPInput = () => {
-    const dispatch = useDispatch();
-    const navigate = useNavigate();
-    const { 
-        phoneNumber, 
-        countryCode, 
-        otp, 
-        loading, 
-        isVerifying, 
-        error, 
-        success, 
-        resendTimer, 
-        generatedOtpForTest, 
-        user, 
-        token 
-    } = useSelector((state) => state.auth);
+  const dispatch = useDispatch();
+  const navigate = useNavigate();
+  const { 
+    phoneNumber, 
+    countryCode, 
+    otp, 
+    loading, 
+    isVerifying, 
+    error, 
+    success, 
+    resendTimer, 
+    generatedOtpForTest, 
+    user, 
+    token 
+  } = useSelector((state) => state.auth);
 
-    // Refs for managing state and preventing multiple operations
-    const inputRefs = useRef([]);
-    const hasNavigated = useRef(false);
-    const verificationAttempted = useRef(false);
-    const autoVerifyTimeoutRef = useRef(null);
-    const loadingTimeoutRef = useRef(null);
+  const inputRefs = useRef([]);
+  const hasNavigated = useRef(false);
+  const verificationAttempted = useRef(false);
+  const autoVerifyTimeoutRef = useRef(null);
+  const loadingTimeoutRef = useRef(null);
 
-    // Debug logging with better organization
-    useEffect(() => {
-        if (process.env.NODE_ENV === 'development') {
-            console.log("🔄 OTP Component State:", {
-                otp: otp?.length || 0,
-                loading,
-                isVerifying,
-                hasToken: !!token,
-                hasUser: !!user,
-                verificationAttempted: verificationAttempted.current
-            });
-        }
-    }, [otp, loading, isVerifying, token, user]);
+  // ✅ Resend Timer
+  useEffect(() => {
+    let timer;
+    if (resendTimer > 0) {
+      timer = setTimeout(() => dispatch(setResendTimer(resendTimer - 1)), 1000);
+    }
+    return () => clearTimeout(timer);
+  }, [resendTimer, dispatch]);
 
-    // Cleanup function for timeouts
-    const cleanupTimeouts = useCallback(() => {
-        if (autoVerifyTimeoutRef.current) {
-            clearTimeout(autoVerifyTimeoutRef.current);
-            autoVerifyTimeoutRef.current = null;
-        }
-        if (loadingTimeoutRef.current) {
-            clearTimeout(loadingTimeoutRef.current);
-            loadingTimeoutRef.current = null;
-        }
-    }, []);
-
-    // Resend timer effect
-    useEffect(() => {
-        let timer;
-        if (resendTimer > 0) {
-            timer = setTimeout(() => dispatch(setResendTimer(resendTimer - 1)), 1000);
-        }
-        return () => clearTimeout(timer);
-    }, [resendTimer, dispatch]);
-
-    // Loading state timeout protection
-    useEffect(() => {
-        if (loading || isVerifying) {
-            loadingTimeoutRef.current = setTimeout(() => {
-                console.warn("⏰ Resetting stuck loading states");
-                dispatch(clearMessages());
-            }, 10000);
-        } else {
-            if (loadingTimeoutRef.current) {
-                clearTimeout(loadingTimeoutRef.current);
-                loadingTimeoutRef.current = null;
-            }
-        }
-
-        return () => {
-            if (loadingTimeoutRef.current) {
-                clearTimeout(loadingTimeoutRef.current);
-                loadingTimeoutRef.current = null;
-            }
-        };
-    }, [loading, isVerifying, dispatch]);
-
-    // Navigation effect - only when verification is complete
-    useEffect(() => {
-        if (hasNavigated.current) return;
-
-        const isVerified = token && user && user.phone && !user.name && !user.profilePic;
-
-        if (isVerified) {
-            hasNavigated.current = true;
-            console.log("✅ OTP verified, navigating to profile setup");
-            
-            // Clean up before navigation
-            cleanupTimeouts();
-            dispatch(setOtp(''));
-            dispatch(clearMessages());
-            
-            navigate('/setup-profile', { replace: true });
-        }
-    }, [token, user, dispatch, navigate, cleanupTimeouts]);
-
-    // Auto-verify when OTP is complete
-    useEffect(() => {
-        if (otp.length === 6 && !loading && !isVerifying && !verificationAttempted.current) {
-            console.log("🔍 Auto-verifying complete OTP");
-            
-            autoVerifyTimeoutRef.current = setTimeout(() => {
-                verificationAttempted.current = true;
-                dispatch(verifyOTP());
-            }, 500); // Small delay to prevent rapid-fire verifications
-        }
-
-        return () => {
-            if (autoVerifyTimeoutRef.current) {
-                clearTimeout(autoVerifyTimeoutRef.current);
-                autoVerifyTimeoutRef.current = null;
-            }
-        };
-    }, [otp, loading, isVerifying, dispatch]);
-
-    // Optimized input change handler
-    const handleChange = useCallback((e, idx) => {
-        const { value } = e.target;
-        
-        if (!/^\d*$/.test(value)) return; // Only allow digits
-
-        const updatedOtp = otp.substring(0, idx) + value + otp.substring(idx + 1);
-        dispatch(setOtp(updatedOtp));
-
-        // Clear errors when user starts typing
-        if (error) {
-            dispatch(clearMessages());
-        }
-
-        // Auto-focus next input
-        if (value && idx < 5) {
-            inputRefs.current[idx + 1]?.focus();
-        }
-    }, [otp, error, dispatch]);
-
-    // Handle backspace navigation
-    const handleKeyDown = useCallback((e, idx) => {
-        if (e.key === 'Backspace' && !otp[idx] && idx > 0) {
-            inputRefs.current[idx - 1]?.focus();
-        }
-    }, [otp]);
-
-    // Manual verification
-    const handleManualVerify = useCallback(() => {
-        if (otp.length === 6 && !loading && !isVerifying) {
-            console.log("🔧 Manual verification triggered");
-            verificationAttempted.current = true;
-            dispatch(verifyOTP());
-        }
-    }, [otp, loading, isVerifying, dispatch]);
-
-    // Resend OTP
-    const handleResend = useCallback(() => {
-        console.log("📨 Resending OTP");
-        verificationAttempted.current = false;
-        cleanupTimeouts();
+  // ✅ Reset loading if stuck
+  useEffect(() => {
+    if (loading || isVerifying) {
+      loadingTimeoutRef.current = setTimeout(() => {
+        console.warn("⏰ Resetting stuck loading states");
         dispatch(clearMessages());
-        dispatch(sendOTP());
-    }, [dispatch, cleanupTimeouts]);
+      }, 10000);
+    } else {
+      clearTimeout(loadingTimeoutRef.current);
+    }
+    return () => clearTimeout(loadingTimeoutRef.current);
+  }, [loading, isVerifying, dispatch]);
 
-    // Change phone number
-    const handleChangePhoneNumber = useCallback(() => {
-        console.log("📱 Changing phone number");
-        hasNavigated.current = false;
-        verificationAttempted.current = false;
-        cleanupTimeouts();
-        dispatch(setCurrentStep('phone'));
-        dispatch(setOtpAndClear(''));
-        dispatch(clearMessages());
-    }, [dispatch, cleanupTimeouts]);
+  // ✅ Handle verified → navigate
+  useEffect(() => {
+    if (hasNavigated.current || !token || !user || !user.phone) return;
 
-    // Memoized button disabled state
-    const isVerifyDisabled = useMemo(() => 
-        loading || isVerifying || otp.length !== 6,
-        [loading, isVerifying, otp.length]
-    );
+    if (!user.name || !user.profilePic) {
+      hasNavigated.current = true;
+      cleanupTimeouts();
+      dispatch(setOtp(''));
+      dispatch(clearMessages());
+      console.log("🟡 New user → /setup-profile");
+      navigate('/setup-profile', { replace: true });
+    } else {
+      hasNavigated.current = true;
+      cleanupTimeouts();
+      dispatch(setOtp(''));
+      dispatch(clearMessages());
+      console.log("✅ Existing user → /app");
+      navigate('/app', { replace: true });
+    }
+  }, [token, user, dispatch, navigate]);
 
-    // Cleanup on unmount
-    useEffect(() => {
-        return () => {
-            cleanupTimeouts();
-        };
-    }, [cleanupTimeouts]);
+  // ✅ Cleanup all timeouts
+  const cleanupTimeouts = useCallback(() => {
+    clearTimeout(autoVerifyTimeoutRef.current);
+    clearTimeout(loadingTimeoutRef.current);
+    autoVerifyTimeoutRef.current = null;
+    loadingTimeoutRef.current = null;
+  }, []);
 
-    return (
-        <div className="min-h-screen bg-[#f0f2f5] flex flex-col items-center justify-center p-4">
-            <div className="flex items-center space-x-2 mb-4">
-                <div className="bg-[#25d366] p-2 rounded-full">
-                    <FaWhatsapp className="text-white text-lg" />
-                </div>
-                <h1 className="text-lg font-bold text-gray-800">WhatsApp</h1>
-            </div>
+  // ✅ Auto verify on 6 digits
+  useEffect(() => {
+    if (otp.length === 6 && !loading && !isVerifying && !verificationAttempted.current) {
+      autoVerifyTimeoutRef.current = setTimeout(() => {
+        verificationAttempted.current = true;
+        dispatch(verifyOTP());
+      }, 500);
+    }
+    return () => clearTimeout(autoVerifyTimeoutRef.current);
+  }, [otp, loading, isVerifying, dispatch]);
 
-            <div className="bg-white border border-gray-300 rounded-lg w-full max-w-sm p-6 shadow-sm">
-                <h2 className="text-base font-semibold text-gray-800 text-center mb-2">
-                    Verify your phone number
-                </h2>
-                <p className="text-xs text-gray-600 text-center mb-4">
-                    Enter the 6-digit code sent to <span className="font-medium">{countryCode} {phoneNumber}</span>
-                </p>
+  // ✅ Manual verify
+  const handleManualVerify = useCallback(() => {
+    if (otp.length === 6 && !loading && !isVerifying) {
+      verificationAttempted.current = true;
+      dispatch(verifyOTP());
+    }
+  }, [otp, loading, isVerifying, dispatch]);
 
-                {/* OTP Input Grid */}
-                <div className="flex justify-center space-x-2 mb-3">
-                    {Array.from({ length: 6 }).map((_, idx) => (
-                        <input
-                            key={idx}
-                            ref={(el) => (inputRefs.current[idx] = el)}
-                            type="text"
-                            inputMode="numeric"
-                            maxLength="1"
-                            value={otp[idx] || ''}
-                            onChange={(e) => handleChange(e, idx)}
-                            onKeyDown={(e) => handleKeyDown(e, idx)}
-                            disabled={loading || isVerifying}
-                            className={`w-10 h-12 border rounded text-center text-lg outline-none transition-all duration-200
-                                ${error ? 'border-red-300 bg-red-50' : 'border-gray-300'}
-                                ${(loading || isVerifying) ? 'bg-gray-100 cursor-not-allowed' : 'focus:ring-2 focus:ring-[#25d366] focus:border-[#25d366]'}
-                                ${otp[idx] ? 'bg-green-50 border-green-300' : ''}
-                            `}
-                        />
-                    ))}
-                </div>
+  // ✅ Handle input change
+  const handleChange = useCallback((e, idx) => {
+    const { value } = e.target;
+    if (!/^\d*$/.test(value)) return;
 
-                {/* Error Message */}
-                {error && (
-                    <div className="flex items-center bg-red-100 text-red-700 px-3 py-2 rounded-md mt-2 text-xs space-x-2">
-                        <FaExclamationCircle className="text-sm flex-shrink-0" />
-                        <span>{error}</span>
-                    </div>
-                )}
+    const updatedOtp = otp.substring(0, idx) + value + otp.substring(idx + 1);
+    dispatch(setOtp(updatedOtp));
 
-                {/* Success Message */}
-                {success && success !== 'Login successful!' && (
-                    <div className="flex items-center bg-green-100 text-green-700 px-3 py-2 rounded-md mt-2 text-xs space-x-2">
-                        <FaCheckCircle className="text-sm flex-shrink-0" />
-                        <span>{success}</span>
-                    </div>
-                )}
+    if (error) dispatch(clearMessages());
+    if (value && idx < 5) inputRefs.current[idx + 1]?.focus();
+  }, [otp, error, dispatch]);
 
-                {/* Test OTP Display */}
-                {generatedOtpForTest && process.env.NODE_ENV === 'development' && (
-                    <div className="mt-2 text-xs text-orange-600 bg-orange-100 px-3 py-2 rounded-md border border-orange-200">
-                        <strong>Test OTP:</strong> {generatedOtpForTest}
-                    </div>
-                )}
+  // ✅ Handle backspace
+  const handleKeyDown = useCallback((e, idx) => {
+    if (e.key === 'Backspace' && !otp[idx] && idx > 0) {
+      inputRefs.current[idx - 1]?.focus();
+    }
+  }, [otp]);
 
-                {/* Verify Button */}
-                <button
-                    onClick={handleManualVerify}
-                    disabled={isVerifyDisabled}
-                    className="w-full bg-[#25d366] hover:bg-[#20c758] disabled:bg-gray-400 disabled:cursor-not-allowed text-white py-2.5 rounded-md font-medium flex items-center justify-center mt-4 transition-colors duration-200"
-                >
-                    {(loading || isVerifying) ? (
-                        <div className="flex items-center space-x-2">
-                            <FaSpinner className="animate-spin text-sm" />
-                            <span>Verifying...</span>
-                        </div>
-                    ) : (
-                        <div className="flex items-center space-x-2">
-                            <FaCheck className="text-sm" />
-                            <span>Verify</span>
-                        </div>
-                    )}
-                </button>
+  // ✅ Resend OTP
+  const handleResend = useCallback(() => {
+    verificationAttempted.current = false;
+    cleanupTimeouts();
+    dispatch(clearMessages());
+    dispatch(sendOTP());
+  }, [dispatch, cleanupTimeouts]);
 
-                {/* Action Buttons */}
-                <div className="text-center text-xs text-gray-500 mt-4 space-y-2">
-                    <button
-                        onClick={handleChangePhoneNumber}
-                        disabled={loading || isVerifying}
-                        className="text-[#25d366] hover:text-[#20c758] hover:underline font-medium disabled:text-gray-400 disabled:cursor-not-allowed transition-colors"
-                    >
-                        ← Change phone number
-                    </button>
-                    
-                    {resendTimer > 0 ? (
-                        <p className="text-gray-400">Resend code in {resendTimer}s</p>
-                    ) : (
-                        <button
-                            onClick={handleResend}
-                            disabled={loading || isVerifying}
-                            className="text-[#25d366] hover:text-[#20c758] hover:underline font-medium disabled:text-gray-400 disabled:cursor-not-allowed transition-colors"
-                        >
-                            Resend OTP
-                        </button>
-                    )}
-                </div>
-            </div>
+  // ✅ Change number
+  const handleChangePhoneNumber = useCallback(() => {
+    hasNavigated.current = false;
+    verificationAttempted.current = false;
+    cleanupTimeouts();
+    dispatch(setCurrentStep('phone'));
+    dispatch(setOtpAndClear(''));
+    dispatch(clearMessages());
+  }, [dispatch, cleanupTimeouts]);
+
+  const isVerifyDisabled = useMemo(() => loading || isVerifying || otp.length !== 6, [loading, isVerifying, otp.length]);
+
+  // ✅ Cleanup on unmount
+  useEffect(() => {
+    return () => cleanupTimeouts();
+  }, [cleanupTimeouts]);
+
+  return (
+    <div className="min-h-screen bg-[#f0f2f5] flex flex-col items-center justify-center p-4">
+      {/* Header */}
+      <div className="flex items-center space-x-2 mb-4">
+        <div className="bg-[#25d366] p-2 rounded-full">
+          <FaWhatsapp className="text-white text-lg" />
         </div>
-    );
+        <h1 className="text-lg font-bold text-gray-800">WhatsApp</h1>
+      </div>
+
+      {/* Card */}
+      <div className="bg-white border border-gray-300 rounded-lg w-full max-w-sm p-6 shadow-sm">
+        <h2 className="text-base font-semibold text-gray-800 text-center mb-2">
+          Verify your phone number
+        </h2>
+        <p className="text-xs text-gray-600 text-center mb-4">
+          Enter the 6-digit code sent to <span className="font-medium">{countryCode} {phoneNumber}</span>
+        </p>
+
+        {/* OTP Boxes */}
+        <div className="flex justify-center space-x-2 mb-3">
+          {Array.from({ length: 6 }).map((_, idx) => (
+            <input
+              key={idx}
+              ref={(el) => (inputRefs.current[idx] = el)}
+              type="text"
+              inputMode="numeric"
+              maxLength="1"
+              value={otp[idx] || ''}
+              onChange={(e) => handleChange(e, idx)}
+              onKeyDown={(e) => handleKeyDown(e, idx)}
+              disabled={loading || isVerifying}
+              className={`w-10 h-12 border rounded text-center text-lg outline-none transition-all duration-200
+                ${error ? 'border-red-300 bg-red-50' : 'border-gray-300'}
+                ${(loading || isVerifying) ? 'bg-gray-100 cursor-not-allowed' : 'focus:ring-2 focus:ring-[#25d366] focus:border-[#25d366]'}
+                ${otp[idx] ? 'bg-green-50 border-green-300' : ''}
+              `}
+            />
+          ))}
+        </div>
+
+        {/* Messages */}
+        {error && (
+          <div className="flex items-center bg-red-100 text-red-700 px-3 py-2 rounded-md mt-2 text-xs space-x-2">
+            <FaExclamationCircle className="text-sm" />
+            <span>{error}</span>
+          </div>
+        )}
+        {success && success !== 'Login successful!' && (
+          <div className="flex items-center bg-green-100 text-green-700 px-3 py-2 rounded-md mt-2 text-xs space-x-2">
+            <FaCheckCircle className="text-sm" />
+            <span>{success}</span>
+          </div>
+        )}
+
+        {/* Test OTP (only in dev) */}
+        {generatedOtpForTest && process.env.NODE_ENV === 'development' && (
+          <div className="mt-2 text-xs text-orange-600 bg-orange-100 px-3 py-2 rounded-md border border-orange-200">
+            <strong>Test OTP:</strong> {generatedOtpForTest}
+          </div>
+        )}
+
+        {/* Verify Button */}
+        <button
+          onClick={handleManualVerify}
+          disabled={isVerifyDisabled}
+          className="w-full bg-[#25d366] hover:bg-[#20c758] disabled:bg-gray-400 disabled:cursor-not-allowed text-white py-2.5 rounded-md font-medium flex items-center justify-center mt-4 transition-colors duration-200"
+        >
+          {(loading || isVerifying) ? (
+            <div className="flex items-center space-x-2">
+              <FaSpinner className="animate-spin text-sm" />
+              <span>Verifying...</span>
+            </div>
+          ) : (
+            <div className="flex items-center space-x-2">
+              <FaCheck className="text-sm" />
+              <span>Verify</span>
+            </div>
+          )}
+        </button>
+
+        {/* Footer Links */}
+        <div className="text-center text-xs text-gray-500 mt-4 space-y-2">
+          <button
+            onClick={handleChangePhoneNumber}
+            disabled={loading || isVerifying}
+            className="text-[#25d366] hover:text-[#20c758] hover:underline font-medium disabled:text-gray-400"
+          >
+            ← Change phone number
+          </button>
+          {resendTimer > 0 ? (
+            <p className="text-gray-400">Resend code in {resendTimer}s</p>
+          ) : (
+            <button
+              onClick={handleResend}
+              disabled={loading || isVerifying}
+              className="text-[#25d366] hover:text-[#20c758] hover:underline font-medium disabled:text-gray-400"
+            >
+              Resend OTP
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
 };
 
 export default OTPInput;

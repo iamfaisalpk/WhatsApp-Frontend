@@ -9,7 +9,6 @@ import { MoreVertical } from "lucide-react";
 import ChatHeader from "./ChatHeader";
 import ChatInput from "./ChatInput";
 
-
 const ChatBox = () => {
   const { selectedChat } = useSelector((s) => s.chat);
   const { user } = useSelector((s) => s.auth);
@@ -32,7 +31,7 @@ const ChatBox = () => {
 
     try {
       // ✅ API call to mark messages seen
-      await instance.post("/api/messages/mark-seen", {
+      await instance.put("/api/messages/seen", {
         conversationId: selectedChat._id,
       });
 
@@ -47,22 +46,21 @@ const ChatBox = () => {
   };
 
   useEffect(() => {
-  const handleSeenUpdate = ({ conversationId, seenBy }) => {
-    if (conversationId !== selectedChat?._id) return;
+    const handleSeenUpdate = ({ conversationId, seenBy }) => {
+      if (conversationId !== selectedChat?._id) return;
 
-    setMessages((prev) =>
-      prev.map((m) =>
-        m.seenBy?.includes(seenBy)
-          ? m
-          : { ...m, seenBy: [...(m.seenBy || []), seenBy] }
-      )
-    );
-  };
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.seenBy?.includes(seenBy)
+            ? m
+            : { ...m, seenBy: [...(m.seenBy || []), seenBy] }
+        )
+      );
+    };
 
-  socket.on("seen-update", handleSeenUpdate);
-  return () => socket.off("seen-update", handleSeenUpdate);
-}, [selectedChat]);
-
+    socket.on("seen-update", handleSeenUpdate);
+    return () => socket.off("seen-update", handleSeenUpdate);
+  }, [selectedChat]);
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -88,7 +86,7 @@ const ChatBox = () => {
           _clientKey: msg._id || uuidv4(),
         }));
         setMessages(messagesWithKeys);
-        markChatAsSeen(); // ✅ Mark as seen after load
+        markChatAsSeen();
       })
       .catch(() => setMessages([]));
 
@@ -193,14 +191,6 @@ const ChatBox = () => {
     setMediaFile(null);
     setReplyToMessage(null);
 
-    const messagePayload = {
-      conversationId: selectedChat._id,
-      senderId: user._id,
-      text: newMessage.trim(),
-      replyTo: replyToMessage,
-      tempId,
-    };
-
     const formData = new FormData();
     formData.append("conversationId", selectedChat._id);
     formData.append("tempId", tempId);
@@ -208,6 +198,7 @@ const ChatBox = () => {
     if (newMessage.trim()) formData.append("text", newMessage.trim());
     if (replyToMessage) formData.append("replyTo", replyToMessage._id);
 
+    // 🟢 Send to backend API
     instance
       .post("/api/messages", formData, {
         headers: { "Content-Type": "multipart/form-data" },
@@ -215,6 +206,17 @@ const ChatBox = () => {
       .catch((err) =>
         console.error("Send error:", err?.response?.data || err.message)
       );
+
+    // 🟢 Emit to socket server (for real-time update)
+    socket.emit("new-message", {
+      conversationId: selectedChat._id,
+      senderId: user._id,
+      text: newMessage.trim(),
+      media: mediaFile ? true : null,
+      voiceNote: null,
+      replyTo: replyToMessage,
+      tempId,
+    });
   };
 
   const handleVoiceSend = async (voiceBlob, duration) => {
@@ -238,7 +240,7 @@ const ChatBox = () => {
 
     const formData = new FormData();
     formData.append("conversationId", selectedChat._id);
-    formData.append("tempId", tempId); // 🔥 This is the key fix
+    formData.append("tempId", tempId);
     formData.append("voiceNote", voiceBlob, "voiceNote.webm");
     formData.append("duration", duration);
 
@@ -247,6 +249,18 @@ const ChatBox = () => {
         headers: { "Content-Type": "multipart/form-data" },
       });
 
+      // ✅ Emit the voice message to Socket.IO for real-time
+      socket.emit("new-message", {
+        conversationId: selectedChat._id,
+        senderId: user._id,
+        text: null,
+        media: null,
+        voiceNote: true, // just a flag to say it's a voice note
+        replyTo: null,
+        tempId,
+      });
+
+      // ✅ Update optimistic UI with real message from backend
       setMessages((prev) =>
         prev.map((m) =>
           m.tempId === tempId
@@ -366,6 +380,8 @@ const ChatBox = () => {
                     isSender ? "justify-end" : "justify-start"
                   }`}
                 >
+
+
                   <div
                     className={`px-3 py-2 rounded-lg text-sm shadow relative transition max-w-xs sm:max-w-md ${
                       isSender ? "bg-[#005c4b]" : "bg-[#202c33]"
@@ -460,7 +476,7 @@ const ChatBox = () => {
                               📝 Reply
                             </button>
 
-                            {isSender && (
+                            {isSender && msg._id && (
                               <button
                                 onClick={() => {
                                   handleDeleteMessage(msg._id);

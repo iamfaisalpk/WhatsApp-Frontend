@@ -12,6 +12,7 @@ import ProfileSetup from "./assets/Pages/ProfileSetup";
 import ChatWindow from "./assets/Components/chat/ChatWindow";
 import { setAuth } from "./assets/store/slices/authSlice";
 import UserProfile from "./assets/Pages/UserProfile";
+import useAuthManager from "./hooks/useAuthManager";
 
 
 const router = createBrowserRouter([
@@ -38,17 +39,22 @@ const App = () => {
 
   useEffect(() => {
   const storedToken = localStorage.getItem("authToken");
-  const storedUser = localStorage.getItem("user");
+  const storedUser = JSON.parse(localStorage.getItem("user") || "null");
+  const refreshToken = localStorage.getItem("refreshToken");
 
   dispatch(setAuth({
     token: storedToken || null,
-    user: storedUser ? JSON.parse(storedUser) : null,
+    refreshToken: refreshToken || null,
+    user: storedUser,
   }));
 }, [dispatch]);
+
 
   useEffect(() => {
     console.log("App.jsx: Auth loaded, rendering RouterProvider.");
   }, []);
+
+  useAuthManager();
   return <RouterProvider router={router} />;
 };
 

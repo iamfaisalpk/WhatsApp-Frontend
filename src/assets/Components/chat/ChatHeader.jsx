@@ -143,7 +143,8 @@ const ChatHeader = ({ onBack, onSearch, onClearLocalMessages }) => {
       <div className="flex items-center space-x-4 relative">
         <Video className="w-5 h-5 cursor-pointer text-[#8696a0]" />
         <Phone className="w-5 h-5 cursor-pointer text-[#8696a0]" />
-        <div className="relative" ref={menuRef}>
+        
+          <div className="relative" ref={menuRef}>
           <MoreVertical
             className="w-5 h-5 cursor-pointer text-[#8696a0]"
             onClick={() => setShowOptions((prev) => !prev)}
@@ -177,6 +178,7 @@ const ChatHeader = ({ onBack, onSearch, onClearLocalMessages }) => {
             </div>
           )}
         </div>
+
 
         {showSearchBox && (
           <ChatSearch
