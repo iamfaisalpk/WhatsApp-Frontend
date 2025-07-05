@@ -134,24 +134,62 @@ const chatSlice = createSlice({
     initialState: {
     chats: [],
     selectedChat: null,
+    mediaToView: null,
     loading: false,
     error: null,
 },
 reducers: {
-    setSelectedChat: (state, action) => {
-        state.selectedChat = action.payload;
+    updateSeenByInSelectedChat: (state, action) => {
+    const { conversationId, seenBy, messageIds } = action.payload;
+
+if (state.selectedChat && state.selectedChat._id === conversationId) {
+    const seenById = typeof seenBy === "object" ? seenBy._id : seenBy;
+
+    if (state.selectedChat.messages) {
+        state.selectedChat.messages = state.selectedChat.messages.map((msg) => {
+        if (!messageIds.includes(msg._id)) return msg;
+
+        const seenIds = (msg.seenBy || []).map((u) =>
+            typeof u === "object" ? u._id : u
+        );
+
+        if (!seenIds.includes(seenById)) {
+            return {
+            ...msg,
+            seenBy: [...(msg.seenBy || []), seenBy],
+        };
+        }
+        return msg;
+    });
+    }
+
+    const isAlreadyMember = state.selectedChat.members.some(
+    (u) => (u._id || u) === seenById
+    );
+    if (!isAlreadyMember) {
+        state.selectedChat.members.push(seenBy);
+    }
+}
+},
+
+setSelectedChat: (state, action) => {
+    state.selectedChat = action.payload;
     },
     clearChatError: (state) => {
-        state.error = null;
+    state.error = null;
     },
     updateSeenBy: (state, action) => {
     const { conversationId, seenBy } = action.payload;
     const chat = state.chats.find((c) => c._id === conversationId);
     if (chat && !chat.seenBy?.includes(seenBy)) {
         chat.seenBy = [...(chat.seenBy || []), seenBy];
-        }
+    }
     },
+    setMediaToView: (state, action) => {
+    state.mediaToView = action.payload;
 },
+},
+
 extraReducers: (builder) => {
     builder
     .addCase(accessChat.pending, (state) => {
@@ -238,5 +276,5 @@ extraReducers: (builder) => {
 },
 });
 
-export const { setSelectedChat, clearChatError, updateSeenBy } = chatSlice.actions;
+export const { setSelectedChat, clearChatError, updateSeenBy, setMediaToView, updateSeenByInSelectedChat } = chatSlice.actions;
 export default chatSlice.reducer;

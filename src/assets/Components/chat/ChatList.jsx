@@ -34,10 +34,7 @@ const ChatList = ({ activeTab }) => {
 
   // ✅ Combine chats + selectedChat (if not already included)
   const allChats = [...chats];
-  if (
-    selectedChat &&
-    !chats.some((c) => c._id === selectedChat._id)
-  ) {
+  if (selectedChat && !chats.some((c) => c._id === selectedChat._id)) {
     allChats.unshift(selectedChat);
   }
 
@@ -49,7 +46,7 @@ const ChatList = ({ activeTab }) => {
       if (activeTab === "Groups") return chat.isGroup === true;
       return true;
     })
-    // ✅ Sort by latest message time
+    //  Sort by latest message time
     .sort((a, b) => {
       const aTime = new Date(a.lastMessage?.timestamp || 0);
       const bTime = new Date(b.lastMessage?.timestamp || 0);
@@ -58,9 +55,7 @@ const ChatList = ({ activeTab }) => {
 
   return (
     <div className="overflow-y-auto h-full">
-      {loading && (
-        <p className="p-4 text-sm text-gray-400">Loading chats...</p>
-      )}
+      {loading && <p className="p-4 text-sm text-gray-400">Loading chats...</p>}
       {!loading && filteredChats.length === 0 && (
         <p className="p-4 text-sm text-gray-400">
           No chats found in {activeTab}.
@@ -96,9 +91,13 @@ const ChatList = ({ activeTab }) => {
             <div className="flex-1">
               <p className="font-semibold text-white">{displayName}</p>
               <p className="text-sm text-gray-400 truncate max-w-[180px]">
-                {chat.isGroup && chat.lastMessage?.sender?._id !== user._id
-                  ? `${chat.lastMessage?.sender?.name?.split(" ")[0]}: `
-                  : ""}
+                {chat.lastMessage
+                  ? chat.isGroup
+                    ? chat.lastMessage.sender?._id === user._id
+                      ? "You: "
+                      : `${chat.lastMessage.sender?.name?.split(" ")[0]}: `
+                    : null
+                  : null}
                 {chat.lastMessage?.text || "No messages yet"}
               </p>
             </div>
@@ -106,10 +105,13 @@ const ChatList = ({ activeTab }) => {
             <div className="ml-auto text-right flex flex-col items-end justify-between gap-1">
               <span className="text-xs text-gray-400">
                 {chat.lastMessage?.timestamp
-                  ? new Date(chat.lastMessage.timestamp).toLocaleTimeString([], {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })
+                  ? new Date(chat.lastMessage.timestamp).toLocaleTimeString(
+                      [],
+                      {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      }
+                    )
                   : ""}
               </span>
 
@@ -123,7 +125,9 @@ const ChatList = ({ activeTab }) => {
               <button
                 onClick={(e) => handleToggleFavorite(e, chat._id)}
                 className="text-yellow-400"
-                title={chat.isFavorite ? "Remove from Favorites" : "Mark as Favorite"}
+                title={
+                  chat.isFavorite ? "Remove from Favorites" : "Mark as Favorite"
+                }
               >
                 {chat.isFavorite ? <Star size={16} /> : <StarOff size={16} />}
               </button>

@@ -18,7 +18,7 @@ import {
 } from "lucide-react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { accessChat, setSelectedChat } from "../store/slices/chatSlice";
-import ChatBox from "../Components/chat/ChatBox";
+import ChatBox from "../Components/ChatBox/ChatBox";
 import instance from "../Services/axiosInstance";
 import {
   logoutUser,

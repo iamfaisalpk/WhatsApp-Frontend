@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 import instance from "../../Services/axiosInstance";
 import { setSelectedChat, fetchChats } from "../../store/slices/chatSlice";
-import ChatSearch from "./ChatSearch";
+import ChatSearch from "../chat/ChatSearch";
 import socket from "../../../../utils/socket";
 
 const ChatHeader = ({ onBack, onSearch, onClearLocalMessages }) => {
@@ -23,12 +23,30 @@ const ChatHeader = ({ onBack, onSearch, onClearLocalMessages }) => {
   const [showSearchBox, setShowSearchBox] = useState(false);
   const [isOnline, setIsOnline] = useState(false);
   const [lastSeen, setLastSeen] = useState(null);
+  const [isTyping, setIstyping] = useState(false);
 
   const menuRef = useRef();
 
   const otherUser = selectedChat?.members?.find(
     (user) => user._id !== currentUser?._id
   );
+
+  useEffect(() => {
+    const typingHandler = (userId) => {
+      if (userId === otherUser._id) setIstyping(true);
+    };
+    const stoptypingHandler = (userId) => {
+      if (userId === otherUser._id) setIstyping(false);
+    };
+
+    socket.on("user-typing", typingHandler);
+    socket.on("stop-typing", stoptypingHandler);
+
+    return () => {
+      socket.off("user-typing", typingHandler);
+      socket.off("stop-typing", setIstyping);
+    };
+  }, [otherUser]);
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -103,14 +121,25 @@ const ChatHeader = ({ onBack, onSearch, onClearLocalMessages }) => {
   const formatLastSeen = (timestamp) => {
     if (!timestamp) return "";
     const date = new Date(timestamp);
-    return `last seen at ${date.toLocaleTimeString([], {
-      hour: "2-digit",
-      minute: "2-digit",
-    })}`;
+    const now = new Date();
+    const isToday = date.toDateString() === now.toDateString();
+
+    return isToday
+      ? `last seen today at ${date.toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit",
+        })}`
+      : `last seen on ${date.toLocaleDateString()} at ${date.toLocaleTimeString(
+          [],
+          {
+            hour: "2-digit",
+            minute: "2-digit",
+          }
+        )}`;
   };
 
   return (
-    <div className="flex items-center justify-between bg-[#202c33] text-white px-4 py-2 border-b border-[#2a3942] relative">
+    <div className="flex items-center justify-between bg-[#161717] text-white px-4 py-2  relative">
       <div className="flex items-center space-x-3">
         <button onClick={onBack} className="lg:hidden block">
           <ArrowLeft className="w-5 h-5 text-[#8696a0]" />
@@ -135,7 +164,11 @@ const ChatHeader = ({ onBack, onSearch, onClearLocalMessages }) => {
             {otherUser?.name || "Unknown"}
           </div>
           <div className="text-xs text-[#8696a0]">
-            {isOnline ? "online" : formatLastSeen(lastSeen)}
+            {isTyping
+              ? "typing..."
+              : isOnline
+              ? "online"
+              : formatLastSeen(lastSeen)}
           </div>
         </div>
       </div>
@@ -143,8 +176,8 @@ const ChatHeader = ({ onBack, onSearch, onClearLocalMessages }) => {
       <div className="flex items-center space-x-4 relative">
         <Video className="w-5 h-5 cursor-pointer text-[#8696a0]" />
         <Phone className="w-5 h-5 cursor-pointer text-[#8696a0]" />
-        
-          <div className="relative" ref={menuRef}>
+
+        <div className="relative" ref={menuRef}>
           <MoreVertical
             className="w-5 h-5 cursor-pointer text-[#8696a0]"
             onClick={() => setShowOptions((prev) => !prev)}
@@ -178,7 +211,6 @@ const ChatHeader = ({ onBack, onSearch, onClearLocalMessages }) => {
             </div>
           )}
         </div>
-
 
         {showSearchBox && (
           <ChatSearch

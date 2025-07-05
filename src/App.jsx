@@ -9,11 +9,11 @@ import WhatsAppAuth from "./assets/Components/WhatsAppAuth/WhatsAppAuth";
 import ProtectedRoute from "./assets/Components/ProtectedRoute";
 import AppMain from "./assets/Pages/AppMain";
 import ProfileSetup from "./assets/Pages/ProfileSetup";
-import ChatWindow from "./assets/Components/chat/ChatWindow";
 import { setAuth } from "./assets/store/slices/authSlice";
 import UserProfile from "./assets/Pages/UserProfile";
 import useAuthManager from "./hooks/useAuthManager";
-
+import ChatBox from "./assets/Components/ChatBox/ChatBox";
+import socket from "../utils/socket";
 
 const router = createBrowserRouter([
   { path: "/", element: <Navigate to="/auth" replace /> },
@@ -26,8 +26,8 @@ const router = createBrowserRouter([
         path: "/app",
         element: <AppMain />,
         children: [
-          { path: "chats/:chatId", element: <ChatWindow /> },
-          { path : "profile", element : <UserProfile/>}
+          { path: "chats/:chatId", element: <ChatBox /> },
+          { path: "profile", element: <UserProfile /> },
         ],
       },
     ],
@@ -36,23 +36,29 @@ const router = createBrowserRouter([
 
 const App = () => {
   const dispatch = useDispatch();
+  const { token } = useSelector((state) => state.auth); 
 
   useEffect(() => {
-  const storedToken = localStorage.getItem("authToken");
-  const storedUser = JSON.parse(localStorage.getItem("user") || "null");
-  const refreshToken = localStorage.getItem("refreshToken");
+    const storedToken = localStorage.getItem("authToken");
+    const storedUser = JSON.parse(localStorage.getItem("user") || "null");
+    const refreshToken = localStorage.getItem("refreshToken");
 
-  dispatch(setAuth({
-    token: storedToken || null,
-    refreshToken: refreshToken || null,
-    user: storedUser,
-  }));
-}, [dispatch]);
-
+    dispatch(
+      setAuth({
+        token: storedToken || null,
+        refreshToken: refreshToken || null,
+        user: storedUser,
+      })
+    );
+  }, [dispatch]);
 
   useEffect(() => {
-    console.log("App.jsx: Auth loaded, rendering RouterProvider.");
-  }, []);
+    if (token) {
+      console.log(" Connecting socket...");
+      socket.auth.token = token;
+      socket.connect();
+    }
+  }, [token]);
 
   useAuthManager();
   return <RouterProvider router={router} />;
