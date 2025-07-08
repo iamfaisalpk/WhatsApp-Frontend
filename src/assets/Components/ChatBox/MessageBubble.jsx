@@ -361,7 +361,22 @@ const MessageBubble = forwardRef((props, ref) => {
             )}
             {msg.media?.url && (
               <div className="mt-2 cursor-pointer">
-                {msg.media.type === "image" ? (
+                {msg.media.uploading ? (
+                  // Uploading Placeholder (WhatsApp style)
+                  <div className="relative w-44 h-44 rounded-lg overflow-hidden border border-gray-600 bg-black/20">
+                    <img
+                      src={msg.media.url}
+                      alt="upload-preview"
+                      className="w-full h-full object-cover blur-sm opacity-60"
+                    />
+                    <div className="absolute inset-0 flex flex-col items-center justify-center">
+                      <div className="w-8 h-8 border-4 border-green-400 border-t-transparent animate-spin rounded-full"></div>
+                      <span className="text-xs text-white mt-2">
+                        Uploading...
+                      </span>
+                    </div>
+                  </div>
+                ) : msg.media.type === "image" ? (
                   <img
                     src={msg.media.url}
                     alt="media"
@@ -397,18 +412,6 @@ const MessageBubble = forwardRef((props, ref) => {
                         {formatFileSize(msg.media.size)}
                       </span>
                     </div>
-                    {msg.media.thumbnail && (
-                      <img
-                        src={msg.media.thumbnail}
-                        alt="preview"
-                        className="w-full mb-2 rounded"
-                      />
-                    )}
-                    {msg.uploading && (
-                      <div className="text-xs italic text-green-400 mt-1">
-                        Uploading...
-                      </div>
-                    )}
                   </a>
                 )}
               </div>
@@ -421,19 +424,6 @@ const MessageBubble = forwardRef((props, ref) => {
                   url={msg.voiceNote.url}
                   duration={msg.voiceNote.duration || 44}
                 />
-
-                {/* Download button */}
-                <div className="flex justify-end pr-1">
-                  <a
-                    href={msg.voiceNote.url}
-                    download={`voice-note-${
-                      msg._id || msg.tempId || Date.now()
-                    }.mp3`}
-                    className="text-xs text-green-400 hover:underline hover:text-green-300 transition-all"
-                  >
-                    Download Voice Note
-                  </a>
-                </div>
               </div>
             )}
 

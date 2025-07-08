@@ -66,7 +66,7 @@ const VoiceMessagePlayer = ({ url, duration = 0 }) => {
     <div className="flex items-center gap-3 px-3 py-2 bg-black/30 rounded-lg">
       <button
         onClick={togglePlay}
-        className="bg-green-500 hover:bg-green-600 w-9 h-9 rounded-full flex items-center justify-center"
+        className="bg-green-500 hover:bg-green-600 w-9 h-9 rounded-full flex items-center justify-center cursor-pointer"
       >
         {isPlaying ? <Pause size={18} className="text-white" /> : <Play size={18} className="text-white" />}
       </button>

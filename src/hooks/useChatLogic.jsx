@@ -20,7 +20,6 @@ const useChatLogic = () => {
   const [isSelectionMode, setIsSelectionMode] = useState(false);
   const [voiceNoteFile, setVoiceNoteFile] = useState(null);
   const [voiceNoteDuration, setVoiceNoteDuration] = useState(0);
-  
 
   const typingTimeoutRef = useRef();
   const pendingMessagesRef = useRef(new Set());
@@ -202,8 +201,19 @@ const useChatLogic = () => {
       sender: user,
       text: newMessage || null,
       media: mediaFile
-        ? { url: URL.createObjectURL(mediaFile), type: "image" }
+        ? {
+            url: URL.createObjectURL(mediaFile),
+            type: mediaFile.type.startsWith("image")
+              ? "image"
+              : mediaFile.type.startsWith("video")
+              ? "video"
+              : "file",
+            name: mediaFile.name,
+            size: mediaFile.size,
+            uploading: true, 
+          }
         : null,
+
       voiceNote: voiceFile
         ? {
             url: URL.createObjectURL(voiceFile),
@@ -247,7 +257,7 @@ const useChatLogic = () => {
     try {
       const res = await instance.post("/api/messages", formData, {
         headers: {
-          'Content-Type': 'multipart/form-data',
+          "Content-Type": "multipart/form-data",
         },
       });
       const finalMsg = { ...res.data.message, tempId };
@@ -260,12 +270,14 @@ const useChatLogic = () => {
       console.error("Send error:", err);
       console.error("Error response:", err.response?.data);
       console.error("Error status:", err.response?.status);
-      
+
       pendingMessagesRef.current.delete(tempId);
       setMessages((prev) => prev.filter((m) => m.tempId !== tempId));
-      
+
       // Show user-friendly error
-      alert(`Failed to send message: ${err.response?.data?.message || err.message}`);
+      alert(
+        `Failed to send message: ${err.response?.data?.message || err.message}`
+      );
     }
   };
 
