@@ -24,6 +24,10 @@ const ChatList = ({ activeTab }) => {
     dispatch(setSelectedChat(chat));
     dispatch(markAsRead(chat._id));
     navigate(`/app/chats/${chat._id}`);
+
+    if (!chats.some((c) => c._id === chat._id)) {
+      dispatch(fetchChats()); 
+    }
   };
 
   const handleToggleFavorite = async (e, chatId) => {
@@ -69,7 +73,11 @@ const ChatList = ({ activeTab }) => {
 
         const displayName = chat.isGroup
           ? chat.groupName
-          : otherUser?.name || "Unknown";
+          : otherUser?.savedName ||
+            otherUser?.name ||
+            otherUser?.phone ||
+            "Unknown";
+
         const profileImage = chat.isGroup
           ? chat.groupAvatar
           : otherUser?.profilePic;
@@ -98,7 +106,8 @@ const ChatList = ({ activeTab }) => {
                       : `${chat.lastMessage.sender?.name?.split(" ")[0]}: `
                     : null
                   : null}
-                {chat.lastMessage?.text || "No messages yet"}
+                {chat.lastMessage?.text ||
+                  (chat.lastMessage?.media ? "📎 Media" : "No messages yet")}
               </p>
             </div>
 

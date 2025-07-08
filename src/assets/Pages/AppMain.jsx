@@ -17,7 +17,7 @@ import {
   MessageSquareText,
 } from "lucide-react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
-import { accessChat, setSelectedChat } from "../store/slices/chatSlice";
+import { accessChat, fetchChats, setSelectedChat } from "../store/slices/chatSlice";
 import ChatBox from "../Components/ChatBox/ChatBox";
 import instance from "../Services/axiosInstance";
 import {
@@ -26,6 +26,8 @@ import {
 } from "../store/slices/authSlice";
 import { useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+
+
 
 const AppMain = () => {
   const [activeTab, setActiveTab] = useState("All");
@@ -41,6 +43,22 @@ const AppMain = () => {
   const menuRef = useRef();
 
   useEffect(() => {
+    const savedChat = localStorage.getItem("selectedChat");
+
+    if (savedChat) {
+      const parsedChat = JSON.parse(savedChat);
+      const exists = chats.find((c) => c._id === parsedChat._id);
+
+      if (exists) {
+        dispatch(setSelectedChat(parsedChat)); 
+      } else {
+        const userId = parsedChat.members?.find((m) => m._id !== user._id)?._id;
+        if (userId) dispatch(accessChat(userId)); 
+      }
+    }
+  }, [dispatch, chats, user._id]);
+
+  useEffect(() => {
     const handleClickOutside = (event) => {
       if (menuRef.current && !menuRef.current.contains(event.target)) {
         setShowProfileMenu(false);
@@ -54,6 +72,10 @@ const AppMain = () => {
   }, []);
 
   const isProfilePage = location.pathname === "/app/profile";
+
+  useEffect(() => {
+  dispatch(fetchChats()); 
+}, [dispatch]);
 
   useEffect(() => {
     dispatch(rehydrateAuthFromStorage());
@@ -132,7 +154,7 @@ const AppMain = () => {
   ];
 
   return (
-    <div className="h-screen w-full flex bg-[#111b21] overflow-hidden">
+    <div className="h-screen w-full flex bg-[#111b21] overflow-y-auto">
       {/* Sidebar */}
       <div className="w-[60px] bg-[#212222] flex flex-col items-center py-3 relative z-10 overflow-visible">
         <div className="flex flex-col space-y-1">
@@ -241,7 +263,7 @@ const AppMain = () => {
           </AnimatePresence>
 
           {/* Search Input */}
-          {/* 🔍 Search Input */}
+          {/*  Search Input */}
           <div className="px-3 py-2 bg-[#161717] relative">
             <div className="flex items-center bg-[#2a2f32] rounded-full px-4 py-2 border-2 border-transparent hover:border-white/25 focus-within:border-[#25D366] focus-within:bg-[#161717]">
               <Search className="w-4 h-4 text-[#8696a0] mr-4" />
@@ -262,7 +284,7 @@ const AppMain = () => {
               )}
             </div>
 
-            {/* 👥 Dropdown User List */}
+            {/*  Dropdown User List */}
             {searchResults.length > 0 && (
               <div className="absolute z-50 bg-[#1f2a30] mt-2 w-full rounded-xl shadow-lg max-h-64 overflow-y-auto border border-white/10">
                 {searchResults.map((u) => (
@@ -281,8 +303,9 @@ const AppMain = () => {
                       <UserCircle className="w-8 h-8 text-[#8696a0]" />
                     )}
                     <div>
-                      <p className="font-medium">{u.name}</p>
-                      <p className="text-xs text-[#8696a0]">{u.phone}</p>
+                      <p className="font-medium">
+                        {u.savedName || u.name || u.phone}
+                      </p>
                     </div>
                   </div>
                 ))}

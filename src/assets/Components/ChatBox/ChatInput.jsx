@@ -58,6 +58,12 @@ const ChatInput = ({
   const [readyToSendVoice, setReadyToSendVoice] = useState(false);
   const [voiceBlob, setVoiceBlob] = useState(null);
 
+  const formatDuration = (seconds = 0) => {
+    const min = Math.floor(seconds / 60);
+    const sec = Math.floor(seconds % 60);
+    return `${min}:${sec < 10 ? "0" : ""}${sec}`;
+  };
+
   // Click outside to close menus
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -137,7 +143,7 @@ const ChatInput = ({
         const audioBlob = new Blob(audioChunks.current, { type: "audio/webm" });
 
         if (!audioBlob || audioBlob.size === 0 || recordTimeRef.current < 1) {
-          console.warn("🚫 Skipping voice note send: Invalid blob or duration");
+          console.warn(" Skipping voice note send: Invalid blob or duration");
           return;
         }
 
@@ -231,11 +237,28 @@ const ChatInput = ({
                   </>
                 ) : replyToMessage.voice ? (
                   <>
-                    <span role="img" aria-label="voice"></span>
-                    <span>Voice Message</span>
+                    <div className="flex items-center gap-1 text-blue-400 font-medium text-sm">
+                      <Mic size={14} className="text-blue-400" />
+                      <span>
+                        {formatDuration(
+                          replyToMessage.voice?.duration ||
+                            replyToMessage.voiceNote?.duration ||
+                            0
+                        )}
+                      </span>
+                    </div>
                   </>
                 ) : (
-                  <span> voice Message</span>
+                  <div className="flex items-center gap-1  font-medium text-sm">
+                    <Mic size={14} className="text-blue-400" />
+                    <span>
+                      {formatDuration(
+                        replyToMessage.voice?.duration ||
+                          replyToMessage.voiceNote?.duration ||
+                          0
+                      )}
+                    </span>
+                  </div>
                 )}
               </div>
             </div>
@@ -479,7 +502,7 @@ const ChatInput = ({
             onClick={onSend}
             className="w-12 h-12 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 rounded-full flex items-center justify-center text-white transition-all duration-200 hover:scale-110 active:scale-95 shadow-lg m-1"
           >
-            <Send size={20} />
+            <Send size={20} className="cursor-pointer" />
           </button>
         ) : readyToSendVoice ? (
           <button
@@ -503,7 +526,11 @@ const ChatInput = ({
               isRecording ? "animate-pulse" : ""
             }`}
           >
-            {isRecording ? <Send size={20} /> : <Mic size={20} />}
+            {isRecording ? (
+              <Send size={20} />
+            ) : (
+              <Mic size={20} className="cursor-pointer" />
+            )}
           </button>
         )}
       </div>

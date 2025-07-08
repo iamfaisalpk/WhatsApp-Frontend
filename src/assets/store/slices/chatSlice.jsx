@@ -1,6 +1,9 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import axios from '../../Services/axiosInstance';
 
+const savedChat = JSON.parse(localStorage.getItem("selectedChat"));
+
+
 export const accessChat = createAsyncThunk(
     'chat/accessChat',
     async (userId, { rejectWithValue }) => {
@@ -133,7 +136,7 @@ const chatSlice = createSlice({
     name: 'chat',
     initialState: {
     chats: [],
-    selectedChat: null,
+    selectedChat: savedChat || null,
     mediaToView: null,
     loading: false,
     error: null,
@@ -174,7 +177,8 @@ if (state.selectedChat && state.selectedChat._id === conversationId) {
 
 setSelectedChat: (state, action) => {
     state.selectedChat = action.payload;
-    },
+  localStorage.setItem("selectedChat", JSON.stringify(action.payload)); 
+},
     clearChatError: (state) => {
     state.error = null;
     },
@@ -196,11 +200,19 @@ extraReducers: (builder) => {
         state.loading = true;
     })
     .addCase(accessChat.fulfilled, (state, action) => {
-        state.loading = false;
-        const exists = state.chats.find(c => c._id === action.payload._id);
-        if (!exists) state.chats.unshift(action.payload);
-        state.selectedChat = action.payload;
-    })
+    state.loading = false;
+    const index = state.chats.findIndex(c => c._id === action.payload._id);
+    if (index !== -1) {
+    state.chats[index] = action.payload;
+} else {
+    state.chats.unshift(action.payload);
+    }
+    state.selectedChat = action.payload;
+
+    localStorage.setItem("selectedChat", JSON.stringify(action.payload));
+})
+
+
     .addCase(accessChat.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;

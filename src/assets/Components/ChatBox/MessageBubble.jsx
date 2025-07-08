@@ -419,10 +419,11 @@ const MessageBubble = forwardRef((props, ref) => {
 
             {msg.voiceNote?.url && !msg.deletedForEveryone && (
               <div className="mt-2 flex flex-col gap-2">
-                {/* Voice player */}
+                {console.log("Voice profilePic:", msg.sender?.profileImage)}
                 <VoiceMessagePlayer
                   url={msg.voiceNote.url}
-                  duration={msg.voiceNote.duration || 44}
+                  duration={msg.voiceNote.duration}
+                  profilePic={msg.sender?.profilePic}
                 />
               </div>
             )}
