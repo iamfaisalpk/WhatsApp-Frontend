@@ -6,18 +6,17 @@ import ChatHeader from "./ChatHeader";
 import ChatInput from "./ChatInput";
 import MessageBubble from "./MessageBubble";
 import TypingIndicator from "./TypingIndicator";
-import MediaViewer from "../common/MediaViewer";
 import ForwardMessageModal from "./ForwardMessageModal";
 import useChatLogic from "../../../hooks/useChatLogic";
-
+import MediaViewer from "../common/MediaViewer";
 
 const ChatBox = () => {
   const dispatch = useDispatch();
   const { selectedChat } = useSelector((state) => state.chat);
   const { user } = useSelector((state) => state.auth);
 
-  const [viewedMedia, setViewedMedia] = useState(null);
   const [forwardModalOpen, setForwardModalOpen] = useState(false);
+  const [viewedMedia, setViewedMedia] = useState(null);
 
   const lastMessageRef = useRef(null);
 
@@ -149,7 +148,7 @@ const ChatBox = () => {
         newMessage={newMessage}
         setNewMessage={setNewMessage}
         mediaFile={mediaFile}
-        setMediaFile={setMediaFile}
+        setMediaFile={setMediaFile} 
         onSend={handleSend}
         onTyping={handleTyping}
         onVoiceSend={handleVoiceSend}
@@ -157,7 +156,6 @@ const ChatBox = () => {
         setReplyToMessage={setReplyToMessage}
       />
 
-      {/* ✅ Media Viewer */}
       {viewedMedia && (
         <MediaViewer media={viewedMedia} onClose={() => setViewedMedia(null)} />
       )}

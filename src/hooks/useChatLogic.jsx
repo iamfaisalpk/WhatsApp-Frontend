@@ -18,6 +18,9 @@ const useChatLogic = () => {
   const [replyToMessage, setReplyToMessage] = useState(null);
   const [selectedMessages, setSelectedMessages] = useState([]);
   const [isSelectionMode, setIsSelectionMode] = useState(false);
+  const [voiceNoteFile, setVoiceNoteFile] = useState(null);
+  const [voiceNoteDuration, setVoiceNoteDuration] = useState(0);
+  
 
   const typingTimeoutRef = useRef();
   const pendingMessagesRef = useRef(new Set());
@@ -132,6 +135,20 @@ const useChatLogic = () => {
     [selectedChat?._id, user._id]
   );
 
+  const handleVoiceSend = async (audioBlob, duration, replyToMessageParam) => {
+    if (!selectedChat?._id || !audioBlob) return;
+
+    const voiceFile = new File([audioBlob], `voice-${Date.now()}.webm`, {
+      type: "audio/webm",
+    });
+
+    handleSend({
+      voiceFile,
+      duration,
+      replyToMessage: replyToMessageParam,
+    });
+  };
+
   useEffect(() => {
     if (!selectedChat?._id) return;
 
@@ -170,8 +187,12 @@ const useChatLogic = () => {
     }, 2000);
   };
 
-  const handleSend = async () => {
-    if (!newMessage && !mediaFile) return;
+  const handleSend = async ({
+    voiceFile = voiceNoteFile,
+    duration = voiceNoteDuration,
+    replyToMessage: replyParam = replyToMessage,
+  } = {}) => {
+    if (!newMessage && !mediaFile && !voiceFile) return;
 
     const tempId = uuidv4();
     const tempMsg = {
@@ -179,30 +200,56 @@ const useChatLogic = () => {
       tempId,
       conversationId: selectedChat._id,
       sender: user,
-      text: newMessage,
-      media: mediaFile ? URL.createObjectURL(mediaFile) : null,
+      text: newMessage || null,
+      media: mediaFile
+        ? { url: URL.createObjectURL(mediaFile), type: "image" }
+        : null,
+      voiceNote: voiceFile
+        ? {
+            url: URL.createObjectURL(voiceFile),
+            duration: duration,
+          }
+        : null,
       createdAt: new Date().toISOString(),
-      replyTo: replyToMessage?._id || null,
+      replyTo: replyParam?._id || null,
       seenBy: [user._id],
     };
 
     addMessageSafely(tempMsg);
 
-    // Prepare payload
     const formData = new FormData();
     formData.append("conversationId", selectedChat._id);
     if (newMessage) formData.append("text", newMessage);
     if (mediaFile) formData.append("media", mediaFile);
-    if (replyToMessage?._id) formData.append("replyTo", replyToMessage._id);
+    if (voiceFile) {
+      formData.append("voiceNote", voiceFile);
+      console.log("📤 Sending voice file:", voiceFile);
+    }
+    if (duration) {
+      formData.append("duration", duration.toString()); // Convert to string
+      console.log("📤 Sending duration:", duration);
+    }
+    if (replyParam?._id) formData.append("replyTo", replyParam._id);
     formData.append("tempId", tempId);
 
-    // Reset local UI states
+    // Debug FormData contents
+    console.log("📤 FormData contents:");
+    for (let [key, value] of formData.entries()) {
+      console.log(`${key}:`, value);
+    }
+
     setNewMessage("");
     setMediaFile(null);
+    setVoiceNoteFile(null);
+    setVoiceNoteDuration(0);
     setReplyToMessage(null);
 
     try {
-      const res = await instance.post("/api/messages", formData);
+      const res = await instance.post("/api/messages", formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
       const finalMsg = { ...res.data.message, tempId };
 
       if (!processedMessageIdsRef.current.has(finalMsg._id)) {
@@ -210,9 +257,15 @@ const useChatLogic = () => {
         socket.emit("new-message", finalMsg);
       }
     } catch (err) {
-      console.error("Send error:", err.message);
+      console.error("Send error:", err);
+      console.error("Error response:", err.response?.data);
+      console.error("Error status:", err.response?.status);
+      
       pendingMessagesRef.current.delete(tempId);
       setMessages((prev) => prev.filter((m) => m.tempId !== tempId));
+      
+      // Show user-friendly error
+      alert(`Failed to send message: ${err.response?.data?.message || err.message}`);
     }
   };
 
@@ -354,7 +407,7 @@ const useChatLogic = () => {
     [dispatch, selectedChatId]
   );
 
-    // main use effect logics
+  // main use effect logics
   useEffect(() => {
     if (!selectedChat?._id) return;
 
@@ -409,27 +462,26 @@ const useChatLogic = () => {
     }) => {
       if (conversationId !== selectedChat._id) return;
 
-      setMessages(
-        (prev) =>
-          prev
-            .map((msg) => {
-              if (msg._id === messageId) {
-                if (deleteForEveryone) {
-                  return {
-                    ...msg,
-                    text: null,
-                    media: null,
-                    voiceNote: null,
-                    deletedForEveryone: true,
-                    deletedAt: new Date(),
-                  };
-                } else {
-                  return null;
-                }
+      setMessages((prev) =>
+        prev
+          .map((msg) => {
+            if (msg._id === messageId) {
+              if (deleteForEveryone) {
+                return {
+                  ...msg,
+                  text: null,
+                  media: null,
+                  voiceNote: null,
+                  deletedForEveryone: true,
+                  deletedAt: new Date(),
+                };
+              } else {
+                return null;
               }
-              return msg;
-            })
-            .filter(Boolean) 
+            }
+            return msg;
+          })
+          .filter(Boolean)
       );
 
       console.log(
@@ -524,6 +576,10 @@ const useChatLogic = () => {
     setNewMessage,
     mediaFile,
     setMediaFile,
+    voiceNoteFile,
+    setVoiceNoteFile,
+    voiceNoteDuration,
+    setVoiceNoteDuration,
     setTypingUserId,
     searchText,
     setSearchText,
@@ -539,6 +595,7 @@ const useChatLogic = () => {
     deleteMessage,
     addMessageSafely,
     markChatAsSeen,
+    handleVoiceSend,
   };
 };
 

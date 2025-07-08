@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from "react";
 import instance from "../../Services/axiosInstance";
 import { useSelector } from "react-redux";
-import MediaViewer from "../common/MediaViewer";
 import { Loader2, SendHorizonal } from "lucide-react";
+import MessageBubble from "./MessageBubble";
 
 const ForwardMessageModal = ({ isOpen, onClose, messageToForward }) => {
   const [chats, setChats] = useState([]);
@@ -53,7 +53,7 @@ const ForwardMessageModal = ({ isOpen, onClose, messageToForward }) => {
   if (!isOpen) return null;
 
   return (
-    <MediaViewer onClose={onClose}>
+    <MessageBubble onClose={onClose}>
       <div className="p-4 text-white w-[350px] sm:w-[400px]">
         <h2 className="text-lg font-semibold mb-4">Forward to...</h2>
 
@@ -110,7 +110,7 @@ const ForwardMessageModal = ({ isOpen, onClose, messageToForward }) => {
           Cancel
         </button>
       </div>
-    </MediaViewer>
+    </MessageBubble>
   );
 };
 

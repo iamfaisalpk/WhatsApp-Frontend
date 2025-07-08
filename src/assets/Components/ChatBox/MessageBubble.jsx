@@ -6,12 +6,20 @@ import {
   CornerUpRight,
   Smile,
   Trash2,
+  File,
+  FileText,
+  FileCode,
+  FileArchive,
+  FileImage,
+  FileVideo,
+  FileAudio,
+  Paperclip,
 } from "lucide-react";
 import clsx from "clsx";
 import { useDispatch } from "react-redux";
 import EmojiPicker from "emoji-picker-react";
-import { setMediaToView } from "../../store/slices/chatSlice";
 import React, { useState, useRef, useEffect, forwardRef } from "react";
+import VoiceMessagePlayer from "./VoiceMessagePlayer";
 
 const MessageBubble = forwardRef((props, ref) => {
   const {
@@ -28,6 +36,7 @@ const MessageBubble = forwardRef((props, ref) => {
     onForward,
     onReact,
     onDelete,
+    setViewedMedia,
   } = props;
 
   const dispatch = useDispatch();
@@ -39,6 +48,27 @@ const MessageBubble = forwardRef((props, ref) => {
   const dropdownRef = useRef(null);
   const emojiPickerRef = useRef(null);
   const messageRef = useRef(null);
+
+  const getLucideFileIcon = (type = "") => {
+    if (type.includes("image")) return <FileImage size={18} />;
+    if (type.includes("video")) return <FileVideo size={18} />;
+    if (type.includes("audio")) return <FileAudio size={18} />;
+    if (type.includes("pdf")) return <FileText size={18} />;
+    if (type.includes("zip") || type.includes("rar"))
+      return <FileArchive size={18} />;
+    if (type.includes("doc") || type.includes("word"))
+      return <FileText size={18} />;
+    if (type.includes("xls") || type.includes("sheet"))
+      return <FileText size={18} />;
+    if (type.includes("code")) return <FileCode size={18} />;
+    return <Paperclip size={18} />;
+  };
+
+  const formatFileSize = (bytes = 0) => {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  };
 
   const isSelected = selectedMessages.some(
     (m) =>
@@ -161,7 +191,7 @@ const MessageBubble = forwardRef((props, ref) => {
         {!isSelectionMode && !msg.deletedForEveryone && (
           <div
             className={clsx(
-              "absolute top-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex gap-1",
+              "absolute top-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex gap-1 ",
               isOwnMessage ? "-left-20" : "-right-20"
             )}
           >
@@ -173,7 +203,7 @@ const MessageBubble = forwardRef((props, ref) => {
               }}
               title="Reply"
             >
-              <CornerUpLeft size={14} />
+              <CornerUpLeft size={16} className="cursor-pointer" />
             </button>
             <button
               className="p-1 rounded-full bg-[#1e1e1e] text-gray-300 hover:text-white hover:bg-[#333] transition-colors"
@@ -183,7 +213,7 @@ const MessageBubble = forwardRef((props, ref) => {
               }}
               title="React"
             >
-              <Smile size={14} />
+              <Smile size={16} className="cursor-pointer" />
             </button>
             <button
               className="p-1 rounded-full bg-[#1e1e1e] text-gray-300 hover:text-white hover:bg-[#333] transition-colors"
@@ -193,7 +223,7 @@ const MessageBubble = forwardRef((props, ref) => {
               }}
               title="More options"
             >
-              <MoreVertical size={14} />
+              <MoreVertical size={16} className="cursor-pointer" />
             </button>
           </div>
         )}
@@ -337,9 +367,7 @@ const MessageBubble = forwardRef((props, ref) => {
                     alt="media"
                     className="max-h-52 rounded-lg hover:opacity-90 transition-opacity"
                     onClick={() =>
-                      dispatch(
-                        setMediaToView({ url: msg.media.url, type: "image" })
-                      )
+                      setViewedMedia({ url: msg.media.url, type: "image" })
                     }
                   />
                 ) : msg.media.type === "video" ? (
@@ -347,9 +375,7 @@ const MessageBubble = forwardRef((props, ref) => {
                     className="max-h-52 rounded-lg"
                     controls
                     onClick={() =>
-                      dispatch(
-                        setMediaToView({ url: msg.media.url, type: "video" })
-                      )
+                      setViewedMedia({ url: msg.media.url, type: "video" })
                     }
                   >
                     <source src={msg.media.url} type="video/mp4" />
@@ -359,20 +385,55 @@ const MessageBubble = forwardRef((props, ref) => {
                     href={msg.media.url}
                     target="_blank"
                     rel="noreferrer"
-                    className="text-blue-400 underline hover:text-blue-300 transition-colors flex items-center gap-2"
+                    className="flex items-center gap-2 px-3 py-2 border border-gray-600 rounded-md text-white bg-black/30 hover:bg-black/50 transition-colors"
+                    title={msg.media.name || "Download"}
                   >
-                    📌 File
+                    {getLucideFileIcon(msg.media.type)}
+                    <div className="flex flex-col text-left">
+                      <span className="truncate max-w-[160px]">
+                        {msg.media.name}
+                      </span>
+                      <span className="text-xs text-gray-400">
+                        {formatFileSize(msg.media.size)}
+                      </span>
+                    </div>
+                    {msg.media.thumbnail && (
+                      <img
+                        src={msg.media.thumbnail}
+                        alt="preview"
+                        className="w-full mb-2 rounded"
+                      />
+                    )}
+                    {msg.uploading && (
+                      <div className="text-xs italic text-green-400 mt-1">
+                        Uploading...
+                      </div>
+                    )}
                   </a>
                 )}
               </div>
             )}
-            {msg.voiceNote?.url && (
-              <div className="mt-2">
-                <audio
-                  controls
-                  src={msg.voiceNote.url}
-                  className="max-w-full"
-                ></audio>
+
+            {msg.voiceNote?.url && !msg.deletedForEveryone && (
+              <div className="mt-2 flex flex-col gap-2">
+                {/* Voice player */}
+                <VoiceMessagePlayer
+                  url={msg.voiceNote.url}
+                  duration={msg.voiceNote.duration || 44}
+                />
+
+                {/* Download button */}
+                <div className="flex justify-end pr-1">
+                  <a
+                    href={msg.voiceNote.url}
+                    download={`voice-note-${
+                      msg._id || msg.tempId || Date.now()
+                    }.mp3`}
+                    className="text-xs text-green-400 hover:underline hover:text-green-300 transition-all"
+                  >
+                    Download Voice Note
+                  </a>
+                </div>
               </div>
             )}
 
@@ -430,7 +491,6 @@ const MessageBubble = forwardRef((props, ref) => {
                 const otherUserId = otherUser?._id;
                 const senderId = msg.sender?._id;
 
-                //  If no valid seenBy array → Single gray tick (sent only)
                 if (!Array.isArray(seenBy)) {
                   return (
                     <Check
