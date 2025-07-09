@@ -16,7 +16,7 @@ import {
   Paperclip,
 } from "lucide-react";
 import clsx from "clsx";
-import { useDispatch } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
 import EmojiPicker from "emoji-picker-react";
 import React, { useState, useRef, useEffect, forwardRef } from "react";
 import VoiceMessagePlayer from "./VoiceMessagePlayer";
@@ -44,6 +44,7 @@ const MessageBubble = forwardRef((props, ref) => {
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [showDeleteOptions, setShowDeleteOptions] = useState(false);
   const [dropdownPosition, setDropdownPosition] = useState({ openLeft: false });
+  const currentUserId = useSelector((state) => state.auth.user?._id || null);
 
   const dropdownRef = useRef(null);
   const emojiPickerRef = useRef(null);
@@ -417,13 +418,13 @@ const MessageBubble = forwardRef((props, ref) => {
               </div>
             )}
 
-            {msg.voiceNote?.url && !msg.deletedForEveryone && (
+            {msg.voiceNote?.url && !msg.deletedForEveryone && currentUserId && (
               <div className="mt-2 flex flex-col gap-2">
-                {console.log("Voice profilePic:", msg.sender?.profileImage)}
                 <VoiceMessagePlayer
                   url={msg.voiceNote.url}
                   duration={msg.voiceNote.duration}
-                  profilePic={msg.sender?.profilePic}
+                  profilePic={msg.sender?.profilePic} 
+                  isSender={msg.sender?._id === currentUserId}
                 />
               </div>
             )}
