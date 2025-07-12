@@ -8,11 +8,15 @@ import {
   MoreVertical,
   Trash2,
   Brush,
+  UserX,
+  UserMinus,
 } from "lucide-react";
 import instance from "../../Services/axiosInstance";
 import { setSelectedChat, fetchChats } from "../../store/slices/chatSlice";
 import ChatSearch from "../chat/ChatSearch";
 import socket from "../../../../utils/socket";
+import { toggleUserInfo } from "../../store/slices/uiSlice";
+import GroupInfoPopup from "./GroupInfoPopup";
 
 const ChatHeader = ({ onBack, onSearch, onClearLocalMessages }) => {
   const dispatch = useDispatch();
@@ -23,34 +27,36 @@ const ChatHeader = ({ onBack, onSearch, onClearLocalMessages }) => {
   const [showSearchBox, setShowSearchBox] = useState(false);
   const [isOnline, setIsOnline] = useState(false);
   const [lastSeen, setLastSeen] = useState(null);
-  const [isTyping, setIstyping] = useState(false);
+  const [isTyping, setIsTyping] = useState(false);
+  const [isBlockedByThem, setIsBlockedByThem] = useState(false);
+  const [iBlockedThem, setIBlockedThem] = useState(false);
+  const [showGroupInfo, setShowGroupInfo] = useState(false);
 
   const menuRef = useRef();
+  const isGroup = selectedChat?.isGroup;
 
-  const otherUser = selectedChat?.members?.find(
-    (user) => user._id !== currentUser?._id
-  );
+  const otherUser = !isGroup
+    ? selectedChat?.members?.find((u) => u._id !== currentUser?._id)
+    : null;
+
+  const chatTitle = isGroup
+    ? selectedChat?.groupName
+    : otherUser?.name || "Unknown";
+
+  const chatAvatar = isGroup
+    ? selectedChat?.groupAvatar?.trim()
+      ? selectedChat.groupAvatar
+      : "/WhatsApp.jpg"
+    : otherUser?.profilePic?.trim()
+    ? otherUser.profilePic
+    : "/WhatsApp.jpg";
+
+
+  const showPrivacy = !isGroup && (isBlockedByThem || iBlockedThem);
 
   useEffect(() => {
-    const typingHandler = (userId) => {
-      if (userId === otherUser._id) setIstyping(true);
-    };
-    const stoptypingHandler = (userId) => {
-      if (userId === otherUser._id) setIstyping(false);
-    };
-
-    socket.on("user-typing", typingHandler);
-    socket.on("stop-typing", stoptypingHandler);
-
-    return () => {
-      socket.off("user-typing", typingHandler);
-      socket.off("stop-typing", setIstyping);
-    };
-  }, [otherUser]);
-
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (menuRef.current && !menuRef.current.contains(event.target)) {
+    const handleClickOutside = (e) => {
+      if (menuRef.current && !menuRef.current.contains(e.target)) {
         setShowOptions(false);
       }
     };
@@ -58,63 +64,103 @@ const ChatHeader = ({ onBack, onSearch, onClearLocalMessages }) => {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // ✅ Real-time online/offline status
   useEffect(() => {
-    if (!otherUser?._id) return;
+    if (!isGroup && otherUser?._id) {
+      const fetchProfileStatus = async () => {
+        try {
+          const res = await instance.get(`/api/users/${otherUser._id}`);
+          setIsBlockedByThem(false);
+          setIBlockedThem(res.data.blockedUsers?.includes(otherUser._id));
+          setIsOnline(res.data.isOnline);
+          setLastSeen(res.data.lastSeen);
+        } catch (err) {
+          if (err.response?.status === 403) setIsBlockedByThem(true);
+        }
+      };
+      fetchProfileStatus();
+    }
+  }, [otherUser, isGroup]);
 
-    const checkOnlineStatus = async () => {
-      try {
-        const res = await instance.get(`/api/users/${otherUser._id}`);
-        setIsOnline(res.data.isOnline);
-        setLastSeen(res.data.lastSeen);
-      } catch (error) {
-        console.error("❌ Failed to get user status:", error);
-      }
-    };
+  useEffect(() => {
+    if (!isGroup && otherUser?._id) {
+      const typingHandler = (userId) => {
+        if (userId === otherUser._id) setIsTyping(true);
+      };
+      const stopTypingHandler = (userId) => {
+        if (userId === otherUser._id) setIsTyping(false);
+      };
 
-    checkOnlineStatus();
+      socket.on("user-typing", typingHandler);
+      socket.on("stop-typing", stopTypingHandler);
 
-    const updateOnline = (userId) => {
-      if (userId === otherUser._id) setIsOnline(true);
-    };
+      return () => {
+        socket.off("user-typing", typingHandler);
+        socket.off("stop-typing", stopTypingHandler);
+      };
+    }
+  }, [otherUser, isGroup]);
 
-    const updateOffline = ({ userId, lastSeen }) => {
-      if (userId === otherUser._id) {
-        setIsOnline(false);
-        setLastSeen(lastSeen);
-      }
-    };
+  useEffect(() => {
+    if (!isGroup && otherUser?._id) {
+      const updateOnline = (userId) => {
+        if (userId === otherUser._id) setIsOnline(true);
+      };
+      const updateOffline = ({ userId, lastSeen }) => {
+        if (userId === otherUser._id) {
+          setIsOnline(false);
+          setLastSeen(lastSeen);
+        }
+      };
 
-    socket.on("user-online", updateOnline);
-    socket.on("user-offline", updateOffline);
+      socket.on("user-online", updateOnline);
+      socket.on("user-offline", updateOffline);
 
-    return () => {
-      socket.off("user-online", updateOnline);
-      socket.off("user-offline", updateOffline);
-    };
-  }, [otherUser]);
+      return () => {
+        socket.off("user-online", updateOnline);
+        socket.off("user-offline", updateOffline);
+      };
+    }
+  }, [otherUser, isGroup]);
 
   const handleDeleteChat = async () => {
-    if (!selectedChat?._id) return;
     try {
-      await instance.delete(`/api/chats/${selectedChat._id}`);
+      await instance.delete(`/api/chat/${selectedChat._id}`);
       dispatch(setSelectedChat(null));
       dispatch(fetchChats());
       setShowOptions(false);
-    } catch (error) {
-      console.error("Delete chat failed:", error);
+    } catch (err) {
+      console.error("Delete error", err);
     }
   };
 
   const handleClearChat = async () => {
-    if (!selectedChat?._id) return;
     try {
       await instance.delete(`/api/messages/clear/${selectedChat._id}`);
       if (onClearLocalMessages) onClearLocalMessages();
       dispatch(fetchChats());
       setShowOptions(false);
-    } catch (error) {
-      console.error("Clear chat failed:", error);
+    } catch (err) {
+      console.error("Clear error", err);
+    }
+  };
+
+  const handleBlockUser = async () => {
+    try {
+      await instance.put(`/api/users/block/${otherUser._id}`);
+      setIBlockedThem(true);
+      setShowOptions(false);
+    } catch (err) {
+      console.error("Block failed", err);
+    }
+  };
+
+  const handleUnblockUser = async () => {
+    try {
+      await instance.put(`/api/users/unblock/${otherUser._id}`);
+      setIBlockedThem(false);
+      setShowOptions(false);
+    } catch (err) {
+      console.error("Unblock failed", err);
     }
   };
 
@@ -131,40 +177,48 @@ const ChatHeader = ({ onBack, onSearch, onClearLocalMessages }) => {
         })}`
       : `last seen on ${date.toLocaleDateString()} at ${date.toLocaleTimeString(
           [],
-          {
-            hour: "2-digit",
-            minute: "2-digit",
-          }
+          { hour: "2-digit", minute: "2-digit" }
         )}`;
   };
 
   return (
-    <div className="flex items-center justify-between bg-[#161717] text-white px-4 py-2  relative">
-      <div className="flex items-center space-x-3">
+    <div className="flex items-center justify-between bg-[#161717] text-white px-4 py-2 relative">
+      <div
+        className="flex items-center gap-3 cursor-pointer"
+        onClick={() => {
+          if (isGroup) {
+            setShowGroupInfo(true);
+          } else {
+            dispatch(toggleUserInfo());
+          }
+        }}
+      >
         <button onClick={onBack} className="lg:hidden block">
           <ArrowLeft className="w-5 h-5 text-[#8696a0]" />
         </button>
 
         <div className="w-10 h-10 rounded-full overflow-hidden bg-gray-700">
-          {otherUser?.profilePic ? (
-            <img
-              src={otherUser.profilePic}
-              alt={otherUser.name}
-              className="w-full h-full object-cover"
-            />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center text-sm bg-[#2a3942] text-gray-300">
-              {otherUser?.name?.charAt(0)?.toUpperCase() || "?"}
-            </div>
-          )}
+          <img
+            src={showPrivacy ? "/default-avatar.png" : chatAvatar}
+            alt="Avatar"
+            className={`w-full h-full object-cover ${
+              showPrivacy ? "blur-sm grayscale" : ""
+            }`}
+          />
         </div>
 
         <div className="leading-4">
           <div className="font-medium text-sm">
-            {otherUser?.name || "Unknown"}
+            {showPrivacy ? "Private" : chatTitle}
           </div>
           <div className="text-xs text-[#8696a0]">
-            {isTyping
+            {isGroup
+              ? `${selectedChat?.members?.length || 0} members`
+              : iBlockedThem
+              ? "You blocked this user"
+              : isBlockedByThem
+              ? "You are blocked"
+              : isTyping
               ? "typing..."
               : isOnline
               ? "online"
@@ -173,9 +227,9 @@ const ChatHeader = ({ onBack, onSearch, onClearLocalMessages }) => {
         </div>
       </div>
 
-      <div className="flex items-center space-x-4 relative">
-        <Video className="w-5 h-5 cursor-pointer text-[#8696a0]" />
-        <Phone className="w-5 h-5 cursor-pointer text-[#8696a0]" />
+      <div className="flex items-center gap-4 relative">
+        <Video className="w-5 h-5 text-[#8696a0]" />
+        <Phone className="w-5 h-5 text-[#8696a0]" />
 
         <div className="relative" ref={menuRef}>
           <MoreVertical
@@ -184,7 +238,7 @@ const ChatHeader = ({ onBack, onSearch, onClearLocalMessages }) => {
           />
 
           {showOptions && (
-            <div className="absolute right-0 mt-1 w-40 bg-[#233138] rounded-md shadow-lg z-20">
+            <div className="absolute right-0 mt-1 w-44 bg-[#233138] rounded-md shadow-lg z-20">
               <button
                 onClick={() => {
                   setShowSearchBox(true);
@@ -208,6 +262,23 @@ const ChatHeader = ({ onBack, onSearch, onClearLocalMessages }) => {
               >
                 <Trash2 className="w-4 h-4 mr-2" /> Delete Chat
               </button>
+
+              {!isGroup &&
+                (iBlockedThem ? (
+                  <button
+                    onClick={handleUnblockUser}
+                    className="flex items-center w-full px-4 py-2 text-sm text-yellow-400 hover:bg-[#2a3942]"
+                  >
+                    <UserMinus className="w-4 h-4 mr-2" /> Unblock User
+                  </button>
+                ) : (
+                  <button
+                    onClick={handleBlockUser}
+                    className="flex items-center w-full px-4 py-2 text-sm text-red-400 hover:bg-[#2a3942]"
+                  >
+                    <UserX className="w-4 h-4 mr-2" /> Block User
+                  </button>
+                ))}
             </div>
           )}
         </div>
@@ -219,6 +290,14 @@ const ChatHeader = ({ onBack, onSearch, onClearLocalMessages }) => {
               setShowSearchBox(false);
             }}
             onClose={() => setShowSearchBox(false)}
+          />
+        )}
+
+        {isGroup && selectedChat && (
+          <GroupInfoPopup
+            chat={selectedChat}
+            show={showGroupInfo}
+            onClose={() => setShowGroupInfo(false)}
           />
         )}
       </div>

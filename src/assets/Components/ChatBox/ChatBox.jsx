@@ -9,6 +9,9 @@ import TypingIndicator from "./TypingIndicator";
 import ForwardMessageModal from "./ForwardMessageModal";
 import useChatLogic from "../../../hooks/useChatLogic";
 import MediaViewer from "../common/MediaViewer";
+import UserInfoPopup from "./UserInfoPopup";
+import GroupInfoPopup from "./GroupInfoPopup";
+import { closeAllPopups } from "../../store/slices/uiSlice";
 
 const ChatBox = () => {
   const dispatch = useDispatch();
@@ -17,6 +20,11 @@ const ChatBox = () => {
 
   const [forwardModalOpen, setForwardModalOpen] = useState(false);
   const [viewedMedia, setViewedMedia] = useState(null);
+
+  const [infoPanelType, setInfoPanelType] = useState(null);
+  const [selectedUser, setSelectedUser] = useState(null);
+
+  const { showUserInfo } = useSelector((state) => state.ui);
 
   const lastMessageRef = useRef(null);
 
@@ -72,8 +80,9 @@ const ChatBox = () => {
   }, [filteredMessages.length, selectedChat?._id]);
 
   const otherUser = useMemo(() => {
-    return selectedChat?.members?.find((u) => u._id !== user._id) || {};
-  }, [selectedChat, user._id]);
+    if (!selectedChat?.members || !user?._id) return {};
+    return selectedChat.members.find((u) => u._id !== user._id) || {};
+  }, [selectedChat, user?._id]);
 
   if (!selectedChat) {
     return (
@@ -89,78 +98,117 @@ const ChatBox = () => {
     );
   }
 
+  const showInfoPanel = infoPanelType === "user" || infoPanelType === "group";
+
   return (
-    <div className="flex-1 flex flex-col bg-[#161717] h-full relative">
+    <div className="flex h-full bg-[#161717]">
+      {/* Main Chat Column - Adjust width when info panel is open */}
       <div
-        className="absolute inset-0 opacity-[0.60] z-0"
-        style={{ backgroundImage: `url("/WhatsApp.jpg")` }}
-      />
+        className={`flex flex-col relative transition-all duration-300 ${
+          showInfoPanel ? "flex-1" : "w-full"
+        }`}
+      >
+        {/* Chat background */}
+        <div
+          className="absolute inset-0 opacity-[0.60] z-0"
+          style={{ backgroundImage: `url("/WhatsApp.jpg")` }}
+        />
 
-      <ChatHeader
-        otherUser={otherUser}
-        onBack={() => dispatch(setSelectedChat(null))}
-        onSearch={setSearchText}
-        onClearLocalMessages={() => setMessages([])}
-        isSelectionMode={isSelectionMode}
-        selectedCount={selectedMessages.length}
-        onClearSelection={() => {
-          setSelectedMessages([]);
-          setIsSelectionMode(false);
-        }}
-        onForward={() => setForwardModalOpen(true)}
-      />
+        {/* Header */}
+        <ChatHeader
+          otherUser={otherUser}
+          onBack={() => dispatch(setSelectedChat(null))}
+          onSearch={setSearchText}
+          onClearLocalMessages={() => setMessages([])}
+          isSelectionMode={isSelectionMode}
+          selectedCount={selectedMessages.length}
+          onClearSelection={() => {
+            setSelectedMessages([]);
+            setIsSelectionMode(false);
+          }}
+          onForward={() => setForwardModalOpen(true)}
+          onUserInfo={() => {
+            setSelectedUser(otherUser);
+            setInfoPanelType("user");
+          }}
+          onGroupInfo={() => {
+            setInfoPanelType("group");
+          }}
+        />
 
-      <ScrollToBottom className="flex-1 overflow-y-auto px-4 py-4 z-10 relative">
-        <div className="space-y-2">
-          {filteredMessages.map((msg, i) => (
-            <MessageBubble
-              key={msg._clientKey}
-              ref={i === filteredMessages.length - 1 ? lastMessageRef : null}
-              msg={msg}
-              isLast={i === filteredMessages.length - 1}
-              index={i}
-              allMessages={filteredMessages}
-              user={user}
-              otherUser={otherUser}
-              replyToMessage={replyToMessage}
-              setReplyToMessage={setReplyToMessage}
-              selectedMessages={selectedMessages}
-              setSelectedMessages={setSelectedMessages}
-              isSelectionMode={isSelectionMode}
-              setIsSelectionMode={setIsSelectionMode}
-              setViewedMedia={setViewedMedia}
-              onDelete={deleteMessage}
-              onReact={handleReaction}
-            />
-          ))}
+        {/* Messages */}
+        <ScrollToBottom className="flex-1 overflow-y-auto px-4 py-4 z-10 relative">
+          <div className="space-y-2">
+            {filteredMessages.map((msg, i) => (
+              <MessageBubble
+                key={msg._clientKey}
+                ref={i === filteredMessages.length - 1 ? lastMessageRef : null}
+                msg={msg}
+                isLast={i === filteredMessages.length - 1}
+                index={i}
+                allMessages={filteredMessages}
+                user={user}
+                otherUser={otherUser}
+                replyToMessage={replyToMessage}
+                setReplyToMessage={setReplyToMessage}
+                selectedMessages={selectedMessages}
+                setSelectedUser={setSelectedUser}
+                setInfoPanelType={setInfoPanelType}
+                setSelectedMessages={setSelectedMessages}
+                isSelectionMode={isSelectionMode}
+                setIsSelectionMode={setIsSelectionMode}
+                setViewedMedia={setViewedMedia}
+                onDelete={deleteMessage}
+                onReact={handleReaction}
+              />
+            ))}
 
-          {typingUserId && (
-            <TypingIndicator
-              typingUser={selectedChat?.members?.find(
-                (u) => u._id === typingUserId
-              )}
-            />
-          )}
-        </div>
-      </ScrollToBottom>
+            {typingUserId && selectedChat?.members && (
+              <TypingIndicator
+                typingUser={selectedChat.members.find(
+                  (u) => u._id === typingUserId
+                )}
+              />
+            )}
+          </div>
+        </ScrollToBottom>
 
-      <ChatInput
-        newMessage={newMessage}
-        setNewMessage={setNewMessage}
-        mediaFile={mediaFile}
-        setMediaFile={setMediaFile} 
-        onSend={handleSend}
-        onTyping={handleTyping}
-        onVoiceSend={handleVoiceSend}
-        replyToMessage={replyToMessage}
-        setReplyToMessage={setReplyToMessage}
-      />
+        {/* Chat Input */}
+        <ChatInput
+          newMessage={newMessage}
+          setNewMessage={setNewMessage}
+          mediaFile={mediaFile}
+          setMediaFile={setMediaFile}
+          onSend={handleSend}
+          onTyping={handleTyping}
+          onVoiceSend={handleVoiceSend}
+          replyToMessage={replyToMessage}
+          setReplyToMessage={setReplyToMessage}
+        />
+      </div>
 
+      {/* Info Panel - Fixed width sidebar */}
+      {!selectedChat?.isGroup && showUserInfo && (
+        <UserInfoPopup
+          user={otherUser}
+          show={true}
+          onClose={() => dispatch(closeAllPopups())}
+        />
+      )}
+
+      {infoPanelType === "group" && selectedChat && (
+        <GroupInfoPopup
+          chat={selectedChat}
+          show={true}
+          onClose={() => setInfoPanelType(null)}
+        />
+      )}
+
+      {/* Viewer / Modals */}
       {viewedMedia && (
         <MediaViewer media={viewedMedia} onClose={() => setViewedMedia(null)} />
       )}
 
-      {/* ✅ Forward Message Modal */}
       {forwardModalOpen && (
         <ForwardMessageModal
           messages={selectedMessages}

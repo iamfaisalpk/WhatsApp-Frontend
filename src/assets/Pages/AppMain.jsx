@@ -17,7 +17,11 @@ import {
   MessageSquareText,
 } from "lucide-react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
-import { accessChat, fetchChats, setSelectedChat } from "../store/slices/chatSlice";
+import {
+  accessChat,
+  fetchChats,
+  setSelectedChat,
+} from "../store/slices/chatSlice";
 import ChatBox from "../Components/ChatBox/ChatBox";
 import instance from "../Services/axiosInstance";
 import {
@@ -26,8 +30,8 @@ import {
 } from "../store/slices/authSlice";
 import { useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-
-
+import GroupCreateModal from "../Components/Models/GroupCreateModal";
+import ChatList from "../Components/chat/ChatList";
 
 const AppMain = () => {
   const [activeTab, setActiveTab] = useState("All");
@@ -41,22 +45,33 @@ const AppMain = () => {
   const location = useLocation();
   const { selectedChat, chats } = useSelector((state) => state.chat);
   const menuRef = useRef();
+  const [showGroupModal, setShowGroupModal] = useState(false);
 
   useEffect(() => {
-    const savedChat = localStorage.getItem("selectedChat");
+    if (!user || !user._id) return;
 
-    if (savedChat) {
+    const savedChat = localStorage.getItem("selectedChat");
+    if (!savedChat) return;
+
+    try {
       const parsedChat = JSON.parse(savedChat);
       const exists = chats.find((c) => c._id === parsedChat._id);
 
       if (exists) {
-        dispatch(setSelectedChat(parsedChat)); 
+        dispatch(setSelectedChat(parsedChat));
       } else {
-        const userId = parsedChat.members?.find((m) => m._id !== user._id)?._id;
-        if (userId) dispatch(accessChat(userId)); 
+        const userId = parsedChat?.members
+          ?.filter((m) => m && m._id)
+          .find((m) => m._id !== user._id)?._id;
+
+        if (userId) {
+          dispatch(accessChat(userId));
+        }
       }
+    } catch (error) {
+      console.error("Invalid savedChat in localStorage", error);
     }
-  }, [dispatch, chats, user._id]);
+  }, [dispatch, chats, user]);
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -74,8 +89,8 @@ const AppMain = () => {
   const isProfilePage = location.pathname === "/app/profile";
 
   useEffect(() => {
-  dispatch(fetchChats()); 
-}, [dispatch]);
+    dispatch(fetchChats());
+  }, [dispatch]);
 
   useEffect(() => {
     dispatch(rehydrateAuthFromStorage());
@@ -138,7 +153,7 @@ const AppMain = () => {
   ];
 
   const menuItems = [
-    { icon: Users, label: "New group", action: () => {} },
+    { icon: Users, label: "New group", action: () => setShowGroupModal(true) },
     { icon: UserCircle, label: "New contact", action: () => {} },
     { icon: Archive, label: "Archived", action: () => {} },
     { icon: Bell, label: "Notifications", action: () => {} },
@@ -252,8 +267,8 @@ const AppMain = () => {
                       item.action();
                       setShowProfileMenu(false);
                     }}
-                    className="w-full px-4 py-2.5 flex items-center space-x-3 hover:bg-white/15 text-white text-sm cursor-pointer"
-                  >
+                    className="w-full px-4 py-2 flex items-center space-x-3 rounded-sm hover:bg-[#2a2a2a] text-white text-sm cursor-pointer overflow-hidden transition-colors duration-150"
+                    >
                     <item.icon size={16} />
                     <span>{item.label}</span>
                   </button>
@@ -263,7 +278,6 @@ const AppMain = () => {
           </AnimatePresence>
 
           {/* Search Input */}
-          {/*  Search Input */}
           <div className="px-3 py-2 bg-[#161717] relative">
             <div className="flex items-center bg-[#2a2f32] rounded-full px-4 py-2 border-2 border-transparent hover:border-white/25 focus-within:border-[#25D366] focus-within:bg-[#161717]">
               <Search className="w-4 h-4 text-[#8696a0] mr-4" />
@@ -284,7 +298,7 @@ const AppMain = () => {
               )}
             </div>
 
-            {/*  Dropdown User List */}
+            {/* Dropdown User List */}
             {searchResults.length > 0 && (
               <div className="absolute z-50 bg-[#1f2a30] mt-2 w-full rounded-xl shadow-lg max-h-64 overflow-y-auto border border-white/10">
                 {searchResults.map((u) => (
@@ -332,56 +346,9 @@ const AppMain = () => {
             </div>
           </div>
 
-          {/* Chat List Rendering */}
+          {/* Chat List - Use ChatList Component */}
           <div className="flex-1 overflow-y-auto bg-[#161717]">
-            {chats
-              .filter((chat) => {
-                if (activeTab === "Unread") {
-                  return chat.unreadCount > 0;
-                } else if (activeTab === "Favorites") {
-                  return chat.isFavorite;
-                } else if (activeTab === "Groups") {
-                  return chat.isGroupChat;
-                }
-                return true;
-              })
-              .map((chat) => {
-                const otherUser = chat.members.find((m) => m._id !== user._id);
-                return (
-                  <div
-                    key={chat._id}
-                    onClick={() => dispatch(setSelectedChat(chat))}
-                    className={`flex items-center px-4 py-3 cursor-pointer hover:bg-[#202c33] ${
-                      selectedChat?._id === chat._id ? "bg-[#202c33]" : ""
-                    }`}
-                  >
-                    <div className="w-10 h-10 rounded-full overflow-hidden bg-gray-700">
-                      {otherUser?.profilePic ? (
-                        <img
-                          src={otherUser.profilePic}
-                          alt={otherUser.name}
-                          className="w-full h-full object-cover"
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center text-sm bg-[#2a3942] text-gray-300">
-                          {otherUser?.name?.charAt(0).toUpperCase() || "?"}
-                        </div>
-                      )}
-                    </div>
-                    <div className="ml-3 flex flex-col text-white">
-                      <span className="font-medium text-sm">
-                        {otherUser?.name}
-                      </span>
-                      <span className="text-xs text-[#8696a0] truncate w-48">
-                        {chat.lastMessage?.text ||
-                          (chat.lastMessage?.media
-                            ? "📎 Media"
-                            : "Say hello 👋")}
-                      </span>
-                    </div>
-                  </div>
-                );
-              })}
+            <ChatList activeTab={activeTab} />
           </div>
         </div>
       )}
@@ -421,6 +388,14 @@ const AppMain = () => {
             </div>
           </div>
         </div>
+      )}
+      {showGroupModal && (
+        <GroupCreateModal
+          onClose={() => setShowGroupModal(false)}
+          onGroupCreated={(group) => {
+            dispatch(fetchChats());
+          }}
+        />
       )}
     </div>
   );

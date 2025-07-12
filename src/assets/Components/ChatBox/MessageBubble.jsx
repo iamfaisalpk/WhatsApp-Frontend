@@ -37,6 +37,8 @@ const MessageBubble = forwardRef((props, ref) => {
     onReact,
     onDelete,
     setViewedMedia,
+    setSelectedUser,
+    setInfoPanelType,
   } = props;
 
   const dispatch = useDispatch();
@@ -423,10 +425,23 @@ const MessageBubble = forwardRef((props, ref) => {
                 <VoiceMessagePlayer
                   url={msg.voiceNote.url}
                   duration={msg.voiceNote.duration}
-                  profilePic={msg.sender?.profilePic} 
+                  profilePic={msg.sender?.profilePic}
                   isSender={msg.sender?._id === currentUserId}
                 />
               </div>
+            )}
+
+            {!isOwnMessage && msg.sender?.profilePic && (
+              <img
+                src={msg.sender.profilePic}
+                alt="Sender"
+                className="w-6 h-6 rounded-full absolute -left-8 top-1 cursor-pointer border border-gray-700"
+                onClick={(e) => {
+                  e.stopPropagation(); 
+                  setSelectedUser(msg.sender);
+                  setInfoPanelType("user");
+                }}
+              />
             )}
 
             {msg.reactions && msg.reactions.length > 0 && (
