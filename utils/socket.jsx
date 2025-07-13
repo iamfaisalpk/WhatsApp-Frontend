@@ -2,15 +2,18 @@ import { io } from "socket.io-client";
 
 const baseURL = import.meta.env.VITE_API_URL;
 
-const token = localStorage.getItem("authToken");
-
 const socket = io(baseURL, {
-  auth: {
-    token, 
-  },
   withCredentials: true,
-  autoConnect: false,
+  autoConnect: false, 
 });
 
-export default socket;
+export function connectSocket(token) {
+  if (!token) return;
 
+  socket.auth = { token };
+  if (!socket.connected) {
+    socket.connect();
+  }
+}
+
+export default socket;

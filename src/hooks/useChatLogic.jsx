@@ -72,21 +72,21 @@ const useChatLogic = () => {
       socket.emit("message-seen", {
         conversationId: selectedChat._id,
         messageIds: seenMessageIds,
-        seenBy: user._id,
+        readBy: user._id,
       });
 
       setMessages((prev) =>
         prev.map((msg) => {
           if (!msg._id || !seenMessageIds.includes(msg._id)) return msg;
 
-          const seenIds = (msg.seenBy || []).map((u) =>
+          const seenIds = (msg.readBy || []).map((u) =>
             typeof u === "object" ? u._id : u
           );
 
           if (!seenIds.includes(user._id)) {
             return {
               ...msg,
-              seenBy: [...(msg.seenBy || []), user._id],
+              readBy: [...(msg.readBy || []), user._id],
             };
           }
           return msg;
@@ -162,7 +162,7 @@ const useChatLogic = () => {
       const withKeys = res.data.messages.map((msg) => ({
         ...msg,
         _clientKey: msg._id || uuidv4(),
-        seenBy: (msg.seenBy || []).map((u) =>
+        readBy: (msg.readBy || []).map((u) =>
           typeof u === "object" ? u._id : u
         ),
         conversationParticipants: selectedChat.participants || [],
@@ -210,7 +210,7 @@ const useChatLogic = () => {
               : "file",
             name: mediaFile.name,
             size: mediaFile.size,
-            uploading: true, 
+            uploading: true,
           }
         : null,
 
@@ -222,7 +222,7 @@ const useChatLogic = () => {
         : null,
       createdAt: new Date().toISOString(),
       replyTo: replyParam?._id || null,
-      seenBy: [user._id],
+      readBy: [user._id],
     };
 
     addMessageSafely(tempMsg);
@@ -233,11 +233,11 @@ const useChatLogic = () => {
     if (mediaFile) formData.append("media", mediaFile);
     if (voiceFile) {
       formData.append("voiceNote", voiceFile);
-      console.log("📤 Sending voice file:", voiceFile);
+      console.log(" Sending voice file:", voiceFile);
     }
     if (duration) {
-      formData.append("duration", duration.toString()); // Convert to string
-      console.log("📤 Sending duration:", duration);
+      formData.append("duration", duration.toString()); 
+      console.log(" Sending duration:", duration);
     }
     if (replyParam?._id) formData.append("replyTo", replyParam._id);
     formData.append("tempId", tempId);
@@ -387,28 +387,28 @@ const useChatLogic = () => {
   };
 
   const handleSeenUpdate = useCallback(
-    ({ conversationId, seenBy, messageIds }) => {
+    ({ conversationId, readBy, messageIds }) => {
       if (conversationId !== selectedChatId || !Array.isArray(messageIds))
         return;
 
       dispatch(
-        updateSeenByInSelectedChat({ conversationId, seenBy, messageIds })
+        updateSeenByInSelectedChat({ conversationId, readBy, messageIds })
       );
 
-      const seenUserId = typeof seenBy === "object" ? seenBy._id : seenBy;
+      const seenUserId = typeof readBy === "object" ? readBy._id : readBy;
 
       setMessages((prev) =>
         prev.map((msg) => {
           if (!msg._id || !messageIds.includes(msg._id)) return msg;
 
-          const seenIds = (msg.seenBy || []).map((u) =>
+          const seenIds = (msg.readBy || []).map((u) =>
             typeof u === "object" ? u._id : u
           );
 
           if (!seenIds.includes(seenUserId)) {
             return {
               ...msg,
-              seenBy: [...(msg.seenBy || []), seenBy],
+              readBy: [...(msg.readBy || []), readBy],
             };
           }
 

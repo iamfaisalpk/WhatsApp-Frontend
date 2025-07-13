@@ -1,7 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useSelector, useDispatch } from "react-redux";
 import ScrollToBottom from "react-scroll-to-bottom";
-import { setSelectedChat } from "../../store/slices/chatSlice";
+import {
+  setSelectedChat,
+  updateSeenByInSelectedChat,
+} from "../../store/slices/chatSlice";
 import ChatHeader from "./ChatHeader";
 import ChatInput from "./ChatInput";
 import MessageBubble from "./MessageBubble";
@@ -12,10 +15,11 @@ import MediaViewer from "../common/MediaViewer";
 import UserInfoPopup from "./UserInfoPopup";
 import GroupInfoPopup from "./GroupInfoPopup";
 import { closeAllPopups } from "../../store/slices/uiSlice";
+import socket from "../../../../utils/socket";
 
 const ChatBox = () => {
   const dispatch = useDispatch();
-  const { selectedChat } = useSelector((state) => state.chat);
+  const { selectedChat, chats } = useSelector((state) => state.chat);
   const { user } = useSelector((state) => state.auth);
 
   const [forwardModalOpen, setForwardModalOpen] = useState(false);
@@ -24,7 +28,7 @@ const ChatBox = () => {
   const [infoPanelType, setInfoPanelType] = useState(null);
   const [selectedUser, setSelectedUser] = useState(null);
 
-  const { showUserInfo } = useSelector((state) => state.ui);
+  const { showUserInfo, showGroupInfo } = useSelector((state) => state.ui);
 
   const lastMessageRef = useRef(null);
 
@@ -58,6 +62,41 @@ const ChatBox = () => {
         msg.text?.toLowerCase().includes(searchText.toLowerCase())
       )
     : messages;
+
+  const isGroup = selectedChat?.isGroup;
+
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleSeenUpdate = ({ conversationId, readBy, messageIds }) => {
+      dispatch(
+        updateSeenByInSelectedChat({
+          conversationId,
+          readBy: readBy, 
+          messageIds,
+        })
+      );
+    };
+
+    socket.on("seen-update", handleSeenUpdate);
+    return () => {
+      socket.off("seen-update", handleSeenUpdate);
+    };
+  }, [socket, dispatch]);
+
+  useEffect(() => {
+    const savedChat = JSON.parse(localStorage.getItem("selectedChat"));
+
+    if (savedChat && chats?.length > 0) {
+      const matchedChat = chats.find((c) => c._id === savedChat._id);
+
+      if (matchedChat) {
+        dispatch(setSelectedChat(matchedChat));
+      } else {
+        localStorage.removeItem("selectedChat");
+      }
+    }
+  }, [chats]);
 
   useEffect(() => {
     if (!lastMessageRef.current || !selectedChat?._id) return;
@@ -196,11 +235,11 @@ const ChatBox = () => {
         />
       )}
 
-      {infoPanelType === "group" && selectedChat && (
+      {isGroup && showGroupInfo && (
         <GroupInfoPopup
           chat={selectedChat}
           show={true}
-          onClose={() => setInfoPanelType(null)}
+          onClose={() => dispatch(closeAllPopups())}
         />
       )}
 

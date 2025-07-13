@@ -1,7 +1,7 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import axios from '../../Services/axiosInstance';
 
-// 📤 Send Message
+//  Send Message
 export const sendMessage = createAsyncThunk(
   'message/sendMessage',
   async (

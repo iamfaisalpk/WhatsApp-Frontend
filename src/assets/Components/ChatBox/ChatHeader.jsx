@@ -15,7 +15,7 @@ import instance from "../../Services/axiosInstance";
 import { setSelectedChat, fetchChats } from "../../store/slices/chatSlice";
 import ChatSearch from "../chat/ChatSearch";
 import socket from "../../../../utils/socket";
-import { toggleUserInfo } from "../../store/slices/uiSlice";
+import { toggleGroupInfo, toggleUserInfo } from "../../store/slices/uiSlice";
 import GroupInfoPopup from "./GroupInfoPopup";
 
 const ChatHeader = ({ onBack, onSearch, onClearLocalMessages }) => {
@@ -187,7 +187,7 @@ const ChatHeader = ({ onBack, onSearch, onClearLocalMessages }) => {
         className="flex items-center gap-3 cursor-pointer"
         onClick={() => {
           if (isGroup) {
-            setShowGroupInfo(true);
+            dispatch(toggleGroupInfo());
           } else {
             dispatch(toggleUserInfo());
           }
@@ -293,13 +293,7 @@ const ChatHeader = ({ onBack, onSearch, onClearLocalMessages }) => {
           />
         )}
 
-        {isGroup && selectedChat && (
-          <GroupInfoPopup
-            chat={selectedChat}
-            show={showGroupInfo}
-            onClose={() => setShowGroupInfo(false)}
-          />
-        )}
+
       </div>
     </div>
   );

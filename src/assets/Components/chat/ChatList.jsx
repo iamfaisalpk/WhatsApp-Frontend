@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef, useCallback } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
 import {
@@ -9,10 +9,12 @@ import {
   toggleMuteChat,
   toggleArchiveChat,
   deleteChat,
+  messageReceived,
+  messageSent,
+  updateChatInList,
 } from "../../store/slices/chatSlice";
 import {
   Star,
-  StarOff,
   MoreVertical,
   Archive,
   Trash2,
@@ -23,6 +25,7 @@ import {
   Pin,
   Users,
 } from "lucide-react";
+import socket from "../../../../utils/socket";
 
 const ChatList = ({ activeTab }) => {
   const dispatch = useDispatch();
@@ -33,9 +36,64 @@ const ChatList = ({ activeTab }) => {
   const [activeDropdown, setActiveDropdown] = useState(null);
   const dropdownRef = useRef(null);
 
+  // Memoize the message handler to prevent unnecessary re-renders
+  const handleMessageReceived = useCallback(
+    (newMessage) => {
+      console.log("Message received:", newMessage);
+
+      // Add current user ID to the message for proper handling
+      const messageWithUserId = {
+        ...newMessage,
+        currentUserId: user._id,
+      };
+
+      dispatch(messageReceived(messageWithUserId));
+    },
+    [dispatch, user._id]
+  );
+
   useEffect(() => {
     dispatch(fetchChats());
+
+    // Load saved chat from localStorage
+    const savedChat = JSON.parse(localStorage.getItem("selectedChat"));
+    if (savedChat) {
+      dispatch(setSelectedChat(savedChat));
+    }
   }, [dispatch]);
+
+  useEffect(() => {
+    if (!socket) return;
+
+    socket.on("message received", handleMessageReceived);
+
+    socket.on("chat updated", (updatedChat) => {
+      console.log("Chat updated:", updatedChat);
+      dispatch(updateChatInList(updatedChat));
+    });
+
+    socket.on("message sent", (data) => {
+      console.log("Message sent confirmed:", data);
+      dispatch(
+        messageSent({
+          chatId: data.conversationId || data.chatId,
+          message: data.message,
+        })
+      );
+    });
+
+    socket.on("chat list updated", () => {
+      console.log("Chat list updated, refetching...");
+      dispatch(fetchChats());
+    });
+
+    return () => {
+      socket.off("message received", handleMessageReceived);
+      socket.off("chat updated");
+      socket.off("message sent");
+      socket.off("chat list updated");
+    };
+  }, [handleMessageReceived, dispatch]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -49,21 +107,27 @@ const ChatList = ({ activeTab }) => {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const handleChatSelect = (chat) => {
-    dispatch(setSelectedChat(chat));
-    dispatch(markAsRead(chat._id));
-    navigate(`/app/chats/${chat._id}`);
+  const handleChatSelect = async (chat) => {
+    try {
+      // Set selected chat first
+      dispatch(setSelectedChat(chat));
 
-    if (!chats.some((c) => c._id === chat._id)) {
-      dispatch(fetchChats());
+      // Mark as read if it has unread messages
+      if (chat.unreadCount > 0 || !chat.isRead) {
+        await dispatch(markAsRead(chat._id));
+      }
+
+      // Navigate to chat
+      navigate(`/app/chats/${chat._id}`);
+    } catch (error) {
+      console.error("Error selecting chat:", error);
     }
   };
 
   const handleToggleFavorite = async (e, chatId) => {
     e.stopPropagation();
     try {
-      await dispatch(toggleFavorite(chatId));
-      dispatch(fetchChats());
+      await dispatch(toggleFavorite(chatId)).unwrap();
     } catch (error) {
       console.error("Error toggling favorite:", error);
     }
@@ -73,7 +137,7 @@ const ChatList = ({ activeTab }) => {
     e.stopPropagation();
     setActiveDropdown(null);
     try {
-      await dispatch(toggleArchiveChat(chatId));
+      await dispatch(toggleArchiveChat(chatId)).unwrap();
     } catch (error) {
       console.error("Error archiving chat:", error);
     }
@@ -82,10 +146,13 @@ const ChatList = ({ activeTab }) => {
   const handleDeleteChat = async (e, chatId) => {
     e.stopPropagation();
     setActiveDropdown(null);
-    try {
-      await dispatch(deleteChat(chatId));
-    } catch (error) {
-      console.error("Error deleting chat:", error);
+
+    if (window.confirm("Are you sure you want to delete this chat?")) {
+      try {
+        await dispatch(deleteChat(chatId)).unwrap();
+      } catch (error) {
+        console.error("Error deleting chat:", error);
+      }
     }
   };
 
@@ -93,7 +160,7 @@ const ChatList = ({ activeTab }) => {
     e.stopPropagation();
     setActiveDropdown(null);
     try {
-      await dispatch(toggleMuteChat(chatId));
+      await dispatch(toggleMuteChat(chatId)).unwrap();
     } catch (error) {
       console.error("Error muting chat:", error);
     }
@@ -105,23 +172,23 @@ const ChatList = ({ activeTab }) => {
 
     const now = new Date();
     const messageDate = new Date(timestamp);
+
+    // Check if date is valid
+    if (isNaN(messageDate.getTime())) return "";
+
     const diffTime = now - messageDate;
     const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
 
     if (diffDays === 0) {
-      // Today - show time
       return messageDate.toLocaleTimeString([], {
         hour: "2-digit",
         minute: "2-digit",
       });
     } else if (diffDays === 1) {
-      // Yesterday
       return "Yesterday";
     } else if (diffDays < 7) {
-      // This week - show day name
       return messageDate.toLocaleDateString([], { weekday: "long" });
     } else {
-      // Older - show date
       return messageDate.toLocaleDateString([], {
         day: "2-digit",
         month: "2-digit",
@@ -153,8 +220,13 @@ const ChatList = ({ activeTab }) => {
 
   // Get message status icon
   const getMessageStatus = (chat) => {
-    if (!chat.lastMessage || chat.lastMessage.sender?._id !== user._id)
+    if (
+      !chat.lastMessage ||
+      !user ||
+      chat.lastMessage.sender?._id !== user._id
+    ) {
       return null;
+    }
 
     const { lastMessage } = chat;
 
@@ -169,64 +241,71 @@ const ChatList = ({ activeTab }) => {
     return null;
   };
 
-  // Merge selected chat (if not in list) to ensure it's visible
-  const allChats = [...chats];
-  if (selectedChat && !chats.some((c) => c._id === selectedChat._id)) {
-    allChats.unshift(selectedChat);
-  }
-
-  // Filter by active tab
-  const filteredChats = allChats
+  // Filter and sort chats
+  const filteredChats = chats
     .filter((chat) => {
-      if (activeTab === "Unread") return !chat.isRead;
+      // Basic validation
+      if (!chat || !chat._id) return false;
+
+      // Filter by active tab
+      if (activeTab === "Unread") return !chat.isRead && chat.unreadCount > 0;
       if (activeTab === "Favorites") return chat.isFavorite;
       if (activeTab === "Groups") return chat.isGroup;
       if (activeTab === "Archived") return chat.isArchived;
-      return !chat.isArchived; // Don't show archived chats in main list
+      return !chat.isArchived; // Default: show non-archived chats
     })
     .sort((a, b) => {
       // Pinned chats first
       if (a.isPinned && !b.isPinned) return -1;
       if (!a.isPinned && b.isPinned) return 1;
 
-      // Then by timestamp
-      const aTime = new Date(a.lastMessage?.timestamp || 0);
-      const bTime = new Date(b.lastMessage?.timestamp || 0);
+      // Then by timestamp (most recent first)
+      const aTime = new Date(
+        a.lastMessageTime || a.lastMessage?.timestamp || 0
+      );
+      const bTime = new Date(
+        b.lastMessageTime || b.lastMessage?.timestamp || 0
+      );
       return bTime - aTime;
     });
 
+  if (loading) {
+    return (
+      <div className="p-4 text-center">
+        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-[#00a884] mx-auto"></div>
+        <p className="text-sm text-gray-400 mt-2">Loading chats...</p>
+      </div>
+    );
+  }
+
+  if (filteredChats.length === 0) {
+    return (
+      <div className="p-8 text-center">
+        <p className="text-gray-400 text-sm">
+          {activeTab === "Unread" && "No unread chats"}
+          {activeTab === "Favorites" && "No favorite chats"}
+          {activeTab === "Groups" && "No group chats"}
+          {activeTab === "Archived" && "No archived chats"}
+          {!["Unread", "Favorites", "Groups", "Archived"].includes(activeTab) &&
+            "No chats yet"}
+        </p>
+        <p className="text-gray-500 text-xs mt-1">
+          Start a new conversation to see chats here
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className="overflow-y-auto h-full scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-transparent">
-      {loading && (
-        <div className="p-4 text-center">
-          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-[#00a884] mx-auto"></div>
-          <p className="text-sm text-gray-400 mt-2">Loading chats...</p>
-        </div>
-      )}
-
-      {!loading && filteredChats.length === 0 && (
-        <div className="p-8 text-center">
-          <p className="text-gray-400 text-sm">
-            {activeTab === "Unread" && "No unread chats"}
-            {activeTab === "Favorites" && "No favorite chats"}
-            {activeTab === "Groups" && "No group chats"}
-            {activeTab === "Archived" && "No archived chats"}
-            {!["Unread", "Favorites", "Groups", "Archived"].includes(
-              activeTab
-            ) && "No chats yet"}
-          </p>
-          <p className="text-gray-500 text-xs mt-1">
-            Start a new conversation to see chats here
-          </p>
-        </div>
-      )}
-
       {filteredChats.map((chat) => {
+        // Safely get other user info
         const otherUser =
           chat.isGroup || !Array.isArray(chat.members)
             ? null
-            : chat.members.find((m) => String(m._id) !== String(user._id)) ||
-              {};
+            : chat.members.find(
+                (m) => m && m._id && String(m._id) !== String(user._id)
+              );
 
         const isBlocked = otherUser?.isBlocked || otherUser?.isBlockedByMe;
         const isOnline = otherUser?.isOnline && !isBlocked;
@@ -234,7 +313,7 @@ const ChatList = ({ activeTab }) => {
         // Hide blocked chats completely
         if (!chat.isGroup && isBlocked) return null;
 
-        // Display name logic
+        // Display name logic with better fallbacks
         const displayName = chat.isGroup
           ? chat.groupName || chat.name || "Unnamed Group"
           : isBlocked
@@ -244,21 +323,15 @@ const ChatList = ({ activeTab }) => {
             otherUser?.phone ||
             "Unknown User";
 
+        // Profile image with proper fallbacks
         const profileImage = chat.isGroup
-          ? chat.groupAvatar?.trim()
-            ? chat.groupAvatar
-            : "/WhatsApp.jpg"
+          ? chat.groupAvatar?.trim() || chat.groupPic?.trim() || "/WhatsApp.jpg"
           : isBlocked
           ? "/WhatsApp.jpg"
-          : otherUser?.profilePic?.trim()
-          ? otherUser.profilePic
-          : "/WhatsApp.jpg";
+          : otherUser?.profilePic?.trim() || "/WhatsApp.jpg";
 
-        // Optional clean log for debugging (if needed)
-        console.log("Group Avatar:", chat?.groupAvatar);
-
-        // Unread count
-        const unreadCount = chat.unreadCount || 0;
+        // Safe unread count
+        const unreadCount = Math.max(0, chat.unreadCount || 0);
 
         return (
           <div
@@ -339,7 +412,9 @@ const ChatList = ({ activeTab }) => {
             <div className="flex flex-col items-end gap-1 text-right ml-2">
               {/* Timestamp */}
               <span className="text-xs text-[#8696a0] whitespace-nowrap">
-                {formatTimestamp(chat.lastMessage?.timestamp)}
+                {formatTimestamp(
+                  chat.lastMessageTime || chat.lastMessage?.timestamp
+                )}
               </span>
 
               {/* Unread count and actions */}
@@ -351,7 +426,7 @@ const ChatList = ({ activeTab }) => {
                   </span>
                 )}
 
-                {/* More options - Always visible */}
+                {/* More options */}
                 <div className="relative" ref={dropdownRef}>
                   <button
                     className="p-1 text-[#8696a0] hover:text-[#e9edef] hover:bg-[#2a3942] rounded-full transition-colors"

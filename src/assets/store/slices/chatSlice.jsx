@@ -27,7 +27,6 @@ export const fetchChats = createAsyncThunk(
 }
 );
 
-// Create group chat - FIXED to handle groupAvatar properly
 export const createGroupChat = createAsyncThunk('chat/createGroupChat', async (formData, { rejectWithValue }) => {
     try {
         const { data } = await axios.post('/api/chat/group', formData, {
@@ -39,7 +38,6 @@ export const createGroupChat = createAsyncThunk('chat/createGroupChat', async (f
     }
 });
 
-// Rename group
 export const renameGroup = createAsyncThunk('chat/renameGroup', async ({ chatId, groupName }, { rejectWithValue }) => {
 try {
     const { data } = await axios.put('/api/chat/rename', { chatId, groupName });
@@ -49,7 +47,6 @@ try {
 }
 });
 
-// Add user to group
 export const addToGroup = createAsyncThunk('chat/addToGroup', async ({ chatId, userId }, { rejectWithValue }) => {
     try {
     const { data } = await axios.put('/api/chat/group-add', { chatId, userId });
@@ -59,7 +56,6 @@ export const addToGroup = createAsyncThunk('chat/addToGroup', async ({ chatId, u
 }
 });
 
-// Remove user from group
 export const removeFromGroup = createAsyncThunk('chat/removeFromGroup', async ({ chatId, userId }, { rejectWithValue }) => {
     try {
     const { data } = await axios.put('/api/chat/group-remove', { chatId, userId });
@@ -69,7 +65,6 @@ export const removeFromGroup = createAsyncThunk('chat/removeFromGroup', async ({
 }
 });
 
-// Leave group
 export const leaveGroup = createAsyncThunk('chat/leaveGroup', async (chatId, { rejectWithValue }) => {
     try {
     const { data } = await axios.put('/api/chat/group-leave', { chatId });
@@ -79,7 +74,6 @@ export const leaveGroup = createAsyncThunk('chat/leaveGroup', async (chatId, { r
 }
 });
 
-// Delete Chat
 export const deleteChat = createAsyncThunk(
     'chat/deleteChat',
     async (chatId, { rejectWithValue }) => {
@@ -202,59 +196,228 @@ const chatSlice = createSlice({
         error: null,
     },
     reducers: {
+messageReceived: (state, action) => {
+            const newMessage = action.payload;
+            const chatId = newMessage.conversationId || newMessage.chatId;
+
+            if (!chatId) {
+            console.warn("Message received without chatId:", newMessage);
+            return;
+        }
+            const currentUserId = newMessage.currentUserId;
+            const isMyMessage = newMessage.sender?._id === currentUserId;
+            const existingIndex = state.chats.findIndex(chat => chat._id === chatId);
+            if (existingIndex !== -1) {
+            const existingChat = state.chats[existingIndex];
+        
+            const updatedChat = {
+                ...existingChat,
+                lastMessage: newMessage,
+                lastMessageTime: newMessage.timestamp || new Date().toISOString(),
+                unreadCount: isMyMessage
+                ? existingChat.unreadCount || 0
+                : state.selectedChat?._id === chatId
+                ? 0
+                : (existingChat.unreadCount || 0) + 1,
+                isRead: isMyMessage
+                ? existingChat.isRead
+                : state.selectedChat?._id === chatId
+                ? true
+                : false,
+            };
+        
+            // ✅ Create new array to trigger re-render
+            state.chats = [
+                updatedChat,
+                ...state.chats.filter((_, i) => i !== existingIndex),
+            ];
+        
+            // ✅ Update selected chat if it's open
+            if (state.selectedChat?._id === chatId) {
+                state.selectedChat = {
+                ...state.selectedChat,
+                lastMessage: newMessage,
+                lastMessageTime: newMessage.timestamp || new Date().toISOString(),
+                unreadCount: 0,
+                isRead: true,
+            };
+                localStorage.setItem("selectedChat", JSON.stringify(state.selectedChat));
+            }
+            } else {
+            const newChat = {
+                _id: chatId,
+                lastMessage: newMessage,
+                lastMessageTime: newMessage.timestamp || new Date().toISOString(),
+                unreadCount: isMyMessage ? 0 : 1,
+                isRead: isMyMessage ? true : false,
+                isGroup: newMessage.isGroup || false,
+                members: newMessage.members || [],
+                groupName: newMessage.groupName || '',
+                groupAvatar: newMessage.groupAvatar || '/WhatsApp.jpg',
+            };
+        
+            state.chats = [newChat, ...state.chats];
+        }
+        },
+
+
+messageSent: (state, action) => {
+    const { chatId, message } = action.payload;
+    
+    // Find and update the chat
+    const chatIndex = state.chats.findIndex(chat => chat._id === chatId);
+    
+    if (chatIndex !== -1) {
+        const chat = state.chats[chatIndex];
+        const updatedChat = {
+            ...chat,
+            lastMessage: message,
+            lastMessageTime: message.timestamp || new Date().toISOString(),
+            unreadCount: 0, 
+            isRead: true,
+        };
+        
+        // Move to top
+        state.chats.splice(chatIndex, 1);
+        state.chats.unshift(updatedChat);
+        
+        // Update selectedChat if it's active
+        if (state.selectedChat?._id === chatId) {
+            state.selectedChat = {
+                ...state.selectedChat,
+                lastMessage: message,
+                lastMessageTime: message.timestamp || new Date().toISOString(),
+            };
+            localStorage.setItem("selectedChat", JSON.stringify(state.selectedChat));
+        }
+    }
+},
+
+        updateLastMessage: (state, action) => {
+            const { chatId, lastMessage, senderId, currentUserId } = action.payload;
+            const chatIndex = state.chats.findIndex((chat) => chat._id === chatId);
+
+            if (chatIndex !== -1) {
+                const chat = state.chats[chatIndex];
+                const isMyMessage = senderId === currentUserId;
+                const isSelectedChat = state.selectedChat?._id === chatId;
+
+                // Update last message
+                state.chats[chatIndex].lastMessage = lastMessage;
+                state.chats[chatIndex].lastMessageTime = lastMessage.timestamp || new Date().toISOString();
+
+                // Only update unread count if it's not my message and not the selected chat
+                if (!isMyMessage && !isSelectedChat) {
+                    state.chats[chatIndex].unreadCount = (chat.unreadCount || 0) + 1;
+                    state.chats[chatIndex].isRead = false;
+                }
+
+                // Move to top of chat list
+                const updatedChat = state.chats.splice(chatIndex, 1)[0];
+                state.chats.unshift(updatedChat);
+            }
+        },
+
+        setSelectedChat: (state, action) => {
+            const payload = action.payload;
+
+            if (!payload) {
+                state.selectedChat = null;
+                localStorage.removeItem("selectedChat");
+                return;
+            }
+
+            const chatData = {
+                ...payload,
+                groupAvatar: payload.groupAvatar || "/WhatsApp.jpg",
+                unreadCount: 0, 
+                isRead: true, 
+            };
+
+            state.selectedChat = chatData;
+            localStorage.setItem("selectedChat", JSON.stringify(chatData));
+
+            // Also update the chat in the chats array
+            const chatIndex = state.chats.findIndex(c => c._id === payload._id);
+            if (chatIndex !== -1) {
+                state.chats[chatIndex].unreadCount = 0;
+                state.chats[chatIndex].isRead = true;
+            }
+        },
+
+        // FIXED: Manual unread count update with proper validation
+        updateUnreadCount: (state, action) => {
+            const { chatId, senderId, currentUserId } = action.payload;
+            const chat = state.chats.find((c) => c._id === chatId);
+
+            // Only increment if it's not the current user's message
+            if (chat && senderId !== currentUserId) {
+                // Don't increment if chat is currently selected
+                if (state.selectedChat?._id !== chatId) {
+                    chat.unreadCount = (chat.unreadCount || 0) + 1;
+                    chat.isRead = false;
+                }
+            }
+        },
+
+        // FIXED: Seen by handler with proper null checks
         updateSeenByInSelectedChat: (state, action) => {
-            const { conversationId, seenBy, messageIds } = action.payload;
+            const { conversationId, readBy, messageIds } = action.payload;
 
             if (state.selectedChat && state.selectedChat._id === conversationId) {
-                const seenById = typeof seenBy === "object" ? seenBy._id : seenBy;
+                const seenById = typeof readBy === "object" ? readBy._id : readBy;
 
                 if (state.selectedChat.messages) {
                     state.selectedChat.messages = state.selectedChat.messages.map((msg) => {
                         if (!messageIds.includes(msg._id)) return msg;
 
-                        const seenIds = (msg.seenBy || []).map((u) =>
+                        const seenIds = (msg.readBy || []).map((u) =>
                             typeof u === "object" ? u._id : u
                         );
 
                         if (!seenIds.includes(seenById)) {
                             return {
                                 ...msg,
-                                seenBy: [...(msg.seenBy || []), seenBy],
+                                readBy: [...(msg.readBy || []), readBy],
                             };
                         }
                         return msg;
                     });
                 }
 
-                const isAlreadyMember = state.selectedChat.members.some(
-                    (u) => (u._id || u) === seenById
-                );
-                if (!isAlreadyMember) {
-                    state.selectedChat.members.push(seenBy);
+                // Ensure members array exists and has proper null checks
+                if (state.selectedChat.members && Array.isArray(state.selectedChat.members)) {
+                    const isAlreadyMember = state.selectedChat.members.some(
+                        (u) => u && (u._id || u) === seenById
+                    );
+
+                    if (!isAlreadyMember) {
+                        state.selectedChat.members.push(readBy);
+                    }
                 }
             }
         },
 
-        setSelectedChat: (state, action) => {
-    const chatData = {
-    ...action.payload,
-    groupAvatar: action.payload.groupAvatar || "/WhatsApp.jpg", 
-};
-
-    state.selectedChat = chatData;
-    localStorage.setItem("selectedChat", JSON.stringify(chatData));
-},
-
+        // Helper reducer to manually refresh a chat
+        refreshChat: (state, action) => {
+            const chatId = action.payload;
+            const chatIndex = state.chats.findIndex(c => c._id === chatId);
+            
+            if (chatIndex !== -1) {
+                // Force a re-render by creating a new object
+                state.chats[chatIndex] = { ...state.chats[chatIndex] };
+            }
+        },
 
         clearChatError: (state) => {
             state.error = null;
         },
 
         updateSeenBy: (state, action) => {
-            const { conversationId, seenBy } = action.payload;
+            const { conversationId, readBy } = action.payload;
             const chat = state.chats.find((c) => c._id === conversationId);
-            if (chat && !chat.seenBy?.includes(seenBy)) {
-                chat.seenBy = [...(chat.seenBy || []), seenBy];
+            if (chat && !chat.readBy?.includes(readBy)) {
+                chat.readBy = [...(chat.readBy || []), readBy];
             }
         },
 
@@ -262,47 +425,46 @@ const chatSlice = createSlice({
             state.mediaToView = action.payload;
         },
 
-        // Add new reducer to update chat in real-time
         updateChatInList: (state, action) => {
             const updatedChat = action.payload;
             const index = state.chats.findIndex(c => c._id === updatedChat._id);
             if (index !== -1) {
                 state.chats[index] = { ...state.chats[index], ...updatedChat };
+            } else {
+                state.chats.unshift(updatedChat); 
             }
         },
+
     },
 
     extraReducers: (builder) => {
         builder
             .addCase(updateGroupAvatar.pending, (state) => {
-            state.loading = true;
-            state.error = null;
-        })
-        .addCase(updateGroupAvatar.fulfilled, (state, action) => {
-            state.loading = false;
-            const updatedChat = {
-                ...action.payload,
-                // Ensure group avatar is properly mapped
-                groupPic: action.payload.groupAvatar || action.payload.groupPic,
-                groupAvatar: action.payload.groupAvatar || action.payload.groupPic,
-            };
+                state.loading = true;
+                state.error = null;
+            })
+            .addCase(updateGroupAvatar.fulfilled, (state, action) => {
+                state.loading = false;
+                const updatedChat = {
+                    ...action.payload,
+                    groupPic: action.payload.groupAvatar || action.payload.groupPic,
+                    groupAvatar: action.payload.groupAvatar || action.payload.groupPic,
+                };
 
-            // Update in chats array
-            const index = state.chats.findIndex(c => c._id === updatedChat._id);
-            if (index !== -1) {
-                state.chats[index] = updatedChat;
-            }
+                const index = state.chats.findIndex(c => c._id === updatedChat._id);
+                if (index !== -1) {
+                    state.chats[index] = updatedChat;
+                }
 
-            // Update selectedChat if it's the updated group
-            if (state.selectedChat && state.selectedChat._id === updatedChat._id) {
-                state.selectedChat = updatedChat;
-                localStorage.setItem("selectedChat", JSON.stringify(updatedChat));
-            }
-        })
-        .addCase(updateGroupAvatar.rejected, (state, action) => {
-            state.loading = false;
-            state.error = action.payload;
-        })
+                if (state.selectedChat && state.selectedChat._id === updatedChat._id) {
+                    state.selectedChat = updatedChat;
+                    localStorage.setItem("selectedChat", JSON.stringify(updatedChat));
+                }
+            })
+            .addCase(updateGroupAvatar.rejected, (state, action) => {
+                state.loading = false;
+                state.error = action.payload;
+            })
 
             .addCase(accessChat.pending, (state) => {
                 state.loading = true;
@@ -330,13 +492,13 @@ const chatSlice = createSlice({
             })
             .addCase(fetchChats.fulfilled, (state, action) => {
                 state.loading = false;
-                // Map the chats to ensure proper field mapping
                 state.chats = action.payload.map(chat => ({
                     ...chat,
-                    // Handle different field names for group avatar
                     groupPic: chat.groupAvatar || chat.groupPic || chat.groupProfilePic,
-                    // Ensure backward compatibility
                     groupAvatar: chat.groupAvatar || chat.groupPic || chat.groupProfilePic,
+                    // Ensure unread count is properly initialized
+                    unreadCount: chat.unreadCount || 0,
+                    isRead: chat.isRead !== undefined ? chat.isRead : true,
                 }));
             })
             .addCase(fetchChats.rejected, (state, action) => {
@@ -344,7 +506,6 @@ const chatSlice = createSlice({
                 state.error = action.payload;
             })
 
-            // FIXED: Create Group Chat with proper avatar handling
             .addCase(createGroupChat.pending, (state) => {
                 state.loading = true;
                 state.error = null;
@@ -353,12 +514,12 @@ const chatSlice = createSlice({
                 state.loading = false;
                 const newGroup = {
                     ...action.payload,
-                    // Ensure group avatar is properly mapped
                     groupPic: action.payload.groupAvatar || action.payload.groupPic,
                     groupAvatar: action.payload.groupAvatar || action.payload.groupPic,
+                    unreadCount: 0,
+                    isRead: true,
                 };
                 state.chats.unshift(newGroup);
-                // Also update selectedChat if it's the newly created group
                 if (state.selectedChat && state.selectedChat._id === newGroup._id) {
                     state.selectedChat = newGroup;
                     localStorage.setItem("selectedChat", JSON.stringify(newGroup));
@@ -379,7 +540,6 @@ const chatSlice = createSlice({
                 if (index !== -1) {
                     state.chats[index] = updatedChat;
                 }
-                // Update selectedChat if it's the renamed group
                 if (state.selectedChat && state.selectedChat._id === updatedChat._id) {
                     state.selectedChat = updatedChat;
                     localStorage.setItem("selectedChat", JSON.stringify(updatedChat));
@@ -451,6 +611,67 @@ const chatSlice = createSlice({
                 }
             })
 
+            // FIXED: Mark as read properly resets unread count
+            .addCase(markAsRead.fulfilled, (state, action) => {
+                const chatId = action.payload;
+                const chat = state.chats.find(c => c._id === chatId);
+        
+                if (chat) {
+                    chat.isRead = true;
+                    chat.unreadCount = 0; 
+                }
+            
+                if (state.selectedChat && state.selectedChat._id === chatId) {
+                    state.selectedChat.isRead = true;
+                    state.selectedChat.unreadCount = 0;
+                    localStorage.setItem("selectedChat", JSON.stringify(state.selectedChat));
+                }
+            })
+
+            .addCase(getBlockedUsers.fulfilled, (state, action) => {
+                state.blockedUsers = action.payload.blockedMe || [];
+                state.blockedByMe = action.payload.iBlocked || [];
+            })
+
+            .addCase(markAsUnread.fulfilled, (state, action) => {
+                const chat = state.chats.find(c => c._id === action.payload);
+                if (chat) {
+                    chat.isRead = false;
+                    chat.unreadCount = Math.max(1, chat.unreadCount || 0);
+                }
+            })
+
+            .addCase(toggleMuteChat.fulfilled, (state, action) => {
+                const chat = state.chats.find(c => c._id === action.payload);
+                if (chat) {
+                    chat.muted = !chat.muted;
+                }
+            })
+
+            .addCase(toggleArchiveChat.fulfilled, (state, action) => {
+                const chat = state.chats.find(c => c._id === action.payload);
+                if (chat) {
+                    chat.isArchived = !chat.isArchived; 
+                }
+        
+                if (state.selectedChat && state.selectedChat._id === action.payload) {
+                    state.selectedChat.isArchived = !state.selectedChat.isArchived;
+                    localStorage.setItem("selectedChat", JSON.stringify(state.selectedChat));
+                }
+            })
+
+            .addCase(togglePinChat.fulfilled, (state, action) => {
+                const chat = state.chats.find(c => c._id === action.payload);
+                if (chat) {
+                    chat.isPinned = !chat.isPinned; 
+                }
+        
+                if (state.selectedChat && state.selectedChat._id === action.payload) {
+                    state.selectedChat.isPinned = !state.selectedChat.isPinned;
+                    localStorage.setItem("selectedChat", JSON.stringify(state.selectedChat));
+                }
+            })
+
             // Error handling
             .addCase(deleteChat.rejected, (state, action) => {
                 state.error = action.payload;
@@ -469,48 +690,7 @@ const chatSlice = createSlice({
             })
             .addCase(leaveGroup.rejected, (state, action) => {
                 state.error = action.payload;
-            })
-
-            .addCase(markAsRead.fulfilled, (state, action) => {
-                const chat = state.chats.find(c => c._id === action.payload);
-                if (chat) {
-                    chat.isRead = true;
-                }
-            })
-
-            .addCase(getBlockedUsers.fulfilled, (state, action) => {
-                state.blockedUsers = action.payload.blockedMe || [];
-                state.blockedByMe = action.payload.iBlocked || [];
-            })
-
-            .addCase(markAsUnread.fulfilled, (state, action) => {
-                const chat = state.chats.find(c => c._id === action.payload);
-                if (chat) {
-                    chat.isRead = false;
-                }
-            })
-
-            .addCase(toggleMuteChat.fulfilled, (state, action) => {
-                const chat = state.chats.find(c => c._id === action.payload);
-                if (chat) {
-                    chat.muted = !chat.muted;
-                }
-            })
-
-            .addCase(toggleArchiveChat.fulfilled, (state, action) => {
-                const chat = state.chats.find(c => c._id === action.payload);
-                if (chat) {
-                    chat.archived = !chat.archived;
-                }
-            })
-
-            .addCase(togglePinChat.fulfilled, (state, action) => {
-                const chat = state.chats.find(c => c._id === action.payload);
-                if (chat) {
-                    chat.pinned = !chat.pinned;
-                }
             });
-        
     },
 });
 
@@ -520,7 +700,12 @@ export const {
     updateSeenBy, 
     setMediaToView, 
     updateSeenByInSelectedChat,
-    updateChatInList 
+    updateChatInList,
+    updateUnreadCount,
+    updateLastMessage,
+    messageReceived,
+    messageSent,
+    refreshChat
 } = chatSlice.actions;
 
 export default chatSlice.reducer;

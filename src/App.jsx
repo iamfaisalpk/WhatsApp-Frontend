@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect } from "react";
 import {
   createBrowserRouter,
   RouterProvider,
@@ -13,7 +13,8 @@ import { setAuth } from "./assets/store/slices/authSlice";
 import UserProfile from "./assets/Pages/UserProfile";
 import useAuthManager from "./hooks/useAuthManager";
 import ChatBox from "./assets/Components/ChatBox/ChatBox";
-import socket from "../utils/socket";
+import socket, { connectSocket } from "../utils/socket";
+import { messageReceived } from "./assets/store/slices/chatSlice";
 
 const router = createBrowserRouter([
   { path: "/", element: <Navigate to="/auth" replace /> },
@@ -36,8 +37,9 @@ const router = createBrowserRouter([
 
 const App = () => {
   const dispatch = useDispatch();
-  const { token } = useSelector((state) => state.auth); 
+  const { token } = useSelector((state) => state.auth);
 
+  // Set auth from localStorage
   useEffect(() => {
     const storedToken = localStorage.getItem("authToken");
     const storedUser = JSON.parse(localStorage.getItem("user") || "null");
@@ -52,15 +54,40 @@ const App = () => {
     );
   }, [dispatch]);
 
+  // Connect socket when token is available
   useEffect(() => {
     if (token) {
-      console.log(" Connecting socket...");
-      socket.auth.token = token;
-      socket.connect();
+      connectSocket(token);
+
+      socket.on("connect", () => {
+        console.log("✅ Socket connected:", socket.id);
+      });
+
+      socket.on("disconnect", () => {
+        console.log("❌ Socket disconnected");
+      });
+
+      socket.on("message received", (newMessage) => {
+        const currentUserId = JSON.parse(localStorage.getItem("user"))?._id;
+
+        dispatch(
+          messageReceived({
+            ...newMessage,
+            currentUserId,
+          })
+        );
+      });
+
+      return () => {
+        socket.off("connect");
+        socket.off("disconnect");
+        socket.off("message received");
+      };
     }
-  }, [token]);
+  }, [token, dispatch]);
 
   useAuthManager();
+
   return <RouterProvider router={router} />;
 };
 

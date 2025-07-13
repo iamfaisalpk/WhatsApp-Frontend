@@ -213,7 +213,6 @@ export const rehydrateAuthFromStorage = () => (dispatch) => {
   if (token && user && refreshToken) {
     dispatch(setAuth({ token, user, refreshToken }));
     socket.auth = { token };
-    socket.connect();
   }
 };
 

@@ -159,10 +159,10 @@ const MessageBubble = forwardRef((props, ref) => {
   const getReplySnippet = (reply) => {
     if (!reply) return "";
     if (reply.text) return reply.text;
-    if (reply.media?.type === "image") return "📷 Photo";
-    if (reply.media?.type === "video") return "🎥 Video";
-    if (reply.voiceNote) return "🎤 Voice Note";
-    return "📌 File";
+    if (reply.media?.type === "image") return " Photo";
+    if (reply.media?.type === "video") return " Video";
+    if (reply.voiceNote) return " Voice Note";
+    return " File";
   };
 
   return (
@@ -365,7 +365,6 @@ const MessageBubble = forwardRef((props, ref) => {
             {msg.media?.url && (
               <div className="mt-2 cursor-pointer">
                 {msg.media.uploading ? (
-                  // Uploading Placeholder (WhatsApp style)
                   <div className="relative w-44 h-44 rounded-lg overflow-hidden border border-gray-600 bg-black/20">
                     <img
                       src={msg.media.url}
@@ -494,11 +493,11 @@ const MessageBubble = forwardRef((props, ref) => {
             {/* Status Indicator */}
             <div className="flex items-center ml-1">
               {(() => {
-                const seenBy = msg.seenBy || [];
+                const readBy = msg.readBy || [];
                 const otherUserId = otherUser?._id;
                 const senderId = msg.sender?._id;
 
-                if (!Array.isArray(seenBy)) {
+                if (!Array.isArray(readBy)) {
                   return (
                     <Check
                       size={13}
@@ -520,7 +519,7 @@ const MessageBubble = forwardRef((props, ref) => {
                   );
                 }
 
-                const seenByIds = seenBy.map((u) =>
+                const seenByIds = readBy.map((u) =>
                   typeof u === "object" ? u._id : u
                 );
 
