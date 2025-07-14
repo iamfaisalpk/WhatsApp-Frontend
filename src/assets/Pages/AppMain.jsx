@@ -142,8 +142,9 @@ const AppMain = () => {
     { id: "Unread", label: "Unread" },
     { id: "Favorites", label: "Favorites" },
     { id: "Groups", label: "Groups" },
+    
   ];
-
+  
   const sidebarIcons = [
     { icon: MessageSquareText, label: "Chats", route: "/app" },
     { icon: Target, label: "Status" },
@@ -155,7 +156,7 @@ const AppMain = () => {
   const menuItems = [
     { icon: Users, label: "New group", action: () => setShowGroupModal(true) },
     { icon: UserCircle, label: "New contact", action: () => {} },
-    { icon: Archive, label: "Archived", action: () => {} },
+    { icon: Archive, label: "Archived", action: () => setActiveTab("Archived") },
     { icon: Bell, label: "Notifications", action: () => {} },
     { icon: Settings, label: "Settings", action: () => {} },
     {

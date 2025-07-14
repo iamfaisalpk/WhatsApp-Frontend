@@ -20,7 +20,11 @@ export const fetchChats = createAsyncThunk(
     async (_, { rejectWithValue }) => {
     try {
         const { data } = await axios.get('/api/chat');
-        return data.chats;
+        return {
+        activeChats: data.activeChats,
+        archivedChats: data.archivedChats
+};
+
     } catch (err) {
         return rejectWithValue(err.response?.data?.message || 'Failed to fetch chats');
     }
@@ -190,6 +194,7 @@ const chatSlice = createSlice({
         chats: [],
         blockedUsers: [],
         blockedByMe: [],
+        archivedChats: [],
         selectedChat: savedChat || null,
         mediaToView: null,
         loading: false,
@@ -492,15 +497,19 @@ messageSent: (state, action) => {
             })
             .addCase(fetchChats.fulfilled, (state, action) => {
                 state.loading = false;
-                state.chats = action.payload.map(chat => ({
-                    ...chat,
-                    groupPic: chat.groupAvatar || chat.groupPic || chat.groupProfilePic,
-                    groupAvatar: chat.groupAvatar || chat.groupPic || chat.groupProfilePic,
-                    // Ensure unread count is properly initialized
-                    unreadCount: chat.unreadCount || 0,
-                    isRead: chat.isRead !== undefined ? chat.isRead : true,
-                }));
-            })
+
+            const formatChat = (chat) => ({
+            ...chat,
+            groupPic: chat.groupAvatar || chat.groupPic || chat.groupProfilePic,
+            groupAvatar: chat.groupAvatar || chat.groupPic || chat.groupProfilePic,
+            unreadCount: chat.unreadCount || 0,
+            isRead: chat.isRead !== undefined ? chat.isRead : true,
+            });
+
+            state.chats = action.payload.activeChats.map(formatChat);
+            state.archivedChats = action.payload.archivedChats.map(formatChat);
+        })
+
             .addCase(fetchChats.rejected, (state, action) => {
                 state.loading = false;
                 state.error = action.payload;
@@ -649,16 +658,29 @@ messageSent: (state, action) => {
             })
 
             .addCase(toggleArchiveChat.fulfilled, (state, action) => {
-                const chat = state.chats.find(c => c._id === action.payload);
-                if (chat) {
-                    chat.isArchived = !chat.isArchived; 
-                }
-        
-                if (state.selectedChat && state.selectedChat._id === action.payload) {
-                    state.selectedChat.isArchived = !state.selectedChat.isArchived;
-                    localStorage.setItem("selectedChat", JSON.stringify(state.selectedChat));
-                }
-            })
+        const chatId = action.payload;
+
+        const archivedIndex = state.archivedChats.findIndex(c => c._id === chatId);
+        if (archivedIndex !== -1) {
+            const [chat] = state.archivedChats.splice(archivedIndex, 1);
+            chat.isArchived = false;
+            state.chats.unshift(chat);
+        }
+
+        const activeIndex = state.chats.findIndex(c => c._id === chatId);
+        if (activeIndex !== -1) {
+            const [chat] = state.chats.splice(activeIndex, 1);
+            chat.isArchived = true;
+            state.archivedChats.unshift(chat);
+        }
+
+        if (state.selectedChat && state.selectedChat._id === chatId) {
+            state.selectedChat.isArchived = !state.selectedChat.isArchived;
+            localStorage.setItem("selectedChat", JSON.stringify(state.selectedChat));
+        }
+    })  
+
+
 
             .addCase(togglePinChat.fulfilled, (state, action) => {
                 const chat = state.chats.find(c => c._id === action.payload);

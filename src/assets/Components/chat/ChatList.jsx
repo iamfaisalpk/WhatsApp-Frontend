@@ -31,7 +31,9 @@ const ChatList = ({ activeTab }) => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
 
-  const { chats, selectedChat, loading } = useSelector((state) => state.chat);
+  const { chats, archivedChats, selectedChat, loading } = useSelector(
+    (state) => state.chat
+  );
   const { user } = useSelector((state) => state.auth);
   const [activeDropdown, setActiveDropdown] = useState(null);
   const dropdownRef = useRef(null);
@@ -142,6 +144,7 @@ const ChatList = ({ activeTab }) => {
     setActiveDropdown(null);
     try {
       await dispatch(toggleArchiveChat(chatId)).unwrap();
+      dispatch(fetchChats());
     } catch (error) {
       console.error("Error archiving chat:", error);
     }
@@ -245,25 +248,21 @@ const ChatList = ({ activeTab }) => {
     return null;
   };
 
-  // Filter and sort chats
-  const filteredChats = chats
+  const filteredChats = (activeTab === "Archived" ? archivedChats : chats)
     .filter((chat) => {
-      // Basic validation
       if (!chat || !chat._id) return false;
 
-      // Filter by active tab
       if (activeTab === "Unread") return !chat.isRead && chat.unreadCount > 0;
       if (activeTab === "Favorites") return chat.isFavorite;
       if (activeTab === "Groups") return chat.isGroup;
-      if (activeTab === "Archived") return chat.isArchived;
-      return !chat.isArchived; // Default: show non-archived chats
+
+      return true;
     })
+
     .sort((a, b) => {
-      // Pinned chats first
       if (a.isPinned && !b.isPinned) return -1;
       if (!a.isPinned && b.isPinned) return 1;
 
-      // Then by timestamp (most recent first)
       const aTime = new Date(
         a.lastMessageTime || a.lastMessage?.timestamp || 0
       );
@@ -484,10 +483,14 @@ const ChatList = ({ activeTab }) => {
 
                       <button
                         className="w-full px-4 py-2 text-sm text-left hover:bg-[#2a3942] flex items-center gap-3 transition-colors"
-                        onClick={(e) => handleArchiveChat(e, chat._id)}
+                        onClick={(e) =>
+                          handleArchiveChat(e, chat._id, chat.isArchived)
+                        }
                       >
                         <Archive className="w-4 h-4 text-[#8696a0]" />
-                        <span>Archive chat</span>
+                        <span>
+                          {chat.isArchived ? "Unarchive chat" : "Archive chat"}
+                        </span>
                       </button>
 
                       <div className="border-t border-[#2a3942] my-1"></div>
