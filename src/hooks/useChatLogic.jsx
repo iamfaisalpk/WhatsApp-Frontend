@@ -57,6 +57,7 @@ const useChatLogic = () => {
       ];
     });
   }, []);
+  
 
   const markChatAsSeen = useCallback(async () => {
     if (!selectedChat?._id) return;
@@ -174,7 +175,7 @@ const useChatLogic = () => {
       );
       markChatAsSeen();
     });
-    socket.emit("join-chat", selectedChat._id);
+    socket.emit("join chat", selectedChat._id);
   }, [selectedChat?._id, markChatAsSeen]);
 
   const handleTyping = () => {
@@ -555,7 +556,7 @@ const useChatLogic = () => {
     };
 
     // Register all event listeners
-    socket.on("message-received", handleNewMessage);
+    socket.on("message received", handleNewMessage);
     socket.on("message-delivered", handleMessageDelivered);
     socket.on("delivery-update", handleDeliveryUpdate);
     socket.on("seen-update", handleSeenUpdate);
@@ -563,7 +564,7 @@ const useChatLogic = () => {
     socket.on("react-message", handleReactionUpdate);
 
     return () => {
-      socket.off("message-received", handleNewMessage);
+      socket.off("message received", handleNewMessage);
       socket.off("message-delivered", handleMessageDelivered);
       socket.off("delivery-update", handleDeliveryUpdate);
       socket.off("seen-update", handleSeenUpdate);

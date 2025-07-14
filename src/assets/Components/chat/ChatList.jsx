@@ -36,20 +36,24 @@ const ChatList = ({ activeTab }) => {
   const [activeDropdown, setActiveDropdown] = useState(null);
   const dropdownRef = useRef(null);
 
-  // Memoize the message handler to prevent unnecessary re-renders
   const handleMessageReceived = useCallback(
     (newMessage) => {
       console.log("Message received:", newMessage);
 
-      // Add current user ID to the message for proper handling
+      const chatId = newMessage.chatId || newMessage.conversationId;
+
       const messageWithUserId = {
         ...newMessage,
         currentUserId: user._id,
       };
 
       dispatch(messageReceived(messageWithUserId));
+
+      if (selectedChat?._id !== chatId) {
+        dispatch(fetchChats());
+      }
     },
-    [dispatch, user._id]
+    [dispatch, user._id, selectedChat?._id]
   );
 
   useEffect(() => {
