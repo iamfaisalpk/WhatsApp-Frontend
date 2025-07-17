@@ -1,11 +1,14 @@
 import React from "react";
 import { useSelector } from "react-redux";
-import { Navigate, Outlet } from "react-router-dom";
+import { Navigate, Outlet, useLocation } from "react-router-dom";
 
 const ProtectedRoute = () => {
   const { token, user, isAuthLoaded, sessionRestoring } = useSelector(
     (state) => state.auth
   );
+
+  const location = useLocation();
+  const isPreviewInviteRoute = location.pathname.startsWith("/preview");
 
   if (!isAuthLoaded || sessionRestoring) {
     return (
@@ -16,13 +19,13 @@ const ProtectedRoute = () => {
     );
   }
 
-  //  Don’t redirect while restoring
+  // Redirect to login if no token
   if (!token && !sessionRestoring) {
     return <Navigate to="/auth" replace />;
   }
 
   const isProfileIncomplete = !user?.name || !user?.profilePic;
-  if (isProfileIncomplete) {
+  if (isProfileIncomplete && !isPreviewInviteRoute) {
     return <Navigate to="/setup-profile" replace />;
   }
 

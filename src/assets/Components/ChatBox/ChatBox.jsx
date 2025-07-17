@@ -14,8 +14,13 @@ import useChatLogic from "../../../hooks/useChatLogic";
 import MediaViewer from "../common/MediaViewer";
 import UserInfoPopup from "./UserInfoPopup";
 import GroupInfoPopup from "./GroupInfoPopup";
-import { closeAllPopups } from "../../store/slices/uiSlice";
 import socket from "../../../../utils/socket";
+import GroupHeader from "./GroupHeader";
+import {
+  closeAllPopups,
+  showUserInfo,
+  showGroupInfo,
+} from "../../store/slices/uiSlice";
 
 const ChatBox = () => {
   const dispatch = useDispatch();
@@ -25,10 +30,13 @@ const ChatBox = () => {
   const [forwardModalOpen, setForwardModalOpen] = useState(false);
   const [viewedMedia, setViewedMedia] = useState(null);
 
+  const [showInviteModal, setShowInviteModal] = useState(false);
+
   const [infoPanelType, setInfoPanelType] = useState(null);
   const [selectedUser, setSelectedUser] = useState(null);
 
-  const { showUserInfo, showGroupInfo } = useSelector((state) => state.ui);
+  const { showUserInfo: showUserInfoState, showGroupInfo: showGroupInfoState } =
+    useSelector((state) => state.ui);
 
   const lastMessageRef = useRef(null);
 
@@ -72,7 +80,7 @@ const ChatBox = () => {
       dispatch(
         updateSeenByInSelectedChat({
           conversationId,
-          readBy: readBy, 
+          readBy: readBy,
           messageIds,
         })
       );
@@ -119,9 +127,20 @@ const ChatBox = () => {
   }, [filteredMessages.length, selectedChat?._id]);
 
   const otherUser = useMemo(() => {
-    if (!selectedChat?.members || !user?._id) return {};
-    return selectedChat.members.find((u) => u._id !== user._id) || {};
-  }, [selectedChat, user?._id]);
+    if (
+      !selectedChat?.members ||
+      !Array.isArray(selectedChat.members) ||
+      !user ||
+      !user._id
+    )
+      return null;
+
+    const others = selectedChat.members.filter(
+      (u) => u && u._id && u._id !== user._id
+    );
+
+    return others.length > 0 ? others[0] : null;
+  }, [selectedChat?.members, user?._id]);
 
   if (!selectedChat) {
     return (
@@ -137,7 +156,7 @@ const ChatBox = () => {
     );
   }
 
-  const showInfoPanel = infoPanelType === "user" || infoPanelType === "group";
+  const showInfoPanel = showUserInfoState || showGroupInfoState;
 
   return (
     <div className="flex h-full bg-[#161717]">
@@ -154,33 +173,47 @@ const ChatBox = () => {
         />
 
         {/* Header */}
-        <ChatHeader
-          otherUser={otherUser}
-          onBack={() => dispatch(setSelectedChat(null))}
-          onSearch={setSearchText}
-          onClearLocalMessages={() => setMessages([])}
-          isSelectionMode={isSelectionMode}
-          selectedCount={selectedMessages.length}
-          onClearSelection={() => {
-            setSelectedMessages([]);
-            setIsSelectionMode(false);
-          }}
-          onForward={() => setForwardModalOpen(true)}
-          onUserInfo={() => {
-            setSelectedUser(otherUser);
-            setInfoPanelType("user");
-          }}
-          onGroupInfo={() => {
-            setInfoPanelType("group");
-          }}
-        />
+        {isGroup ? (
+          <GroupHeader
+            onBack={() => dispatch(setSelectedChat(null))}
+            onSearch={setSearchText}
+            onClearLocalMessages={() => setMessages([])}
+            onGroupInfo={() => {
+              dispatch(showGroupInfo());
+              setInfoPanelType("group");
+            }}
+          />
+        ) : (
+          <ChatHeader
+            otherUser={otherUser}
+            onBack={() => dispatch(setSelectedChat(null))}
+            onSearch={setSearchText}
+            onClearLocalMessages={() => setMessages([])}
+            isSelectionMode={isSelectionMode}
+            selectedCount={selectedMessages.length}
+            onClearSelection={() => {
+              setSelectedMessages([]);
+              setIsSelectionMode(false);
+            }}
+            onForward={() => setForwardModalOpen(true)}
+            onUserInfo={() => {
+              dispatch(showUserInfo());
+              setSelectedUser(otherUser);
+              setInfoPanelType("user");
+            }}
+            onGroupInfo={() => {
+              dispatch(showGroupInfo());
+              setInfoPanelType("group");
+            }}
+          />
+        )}
 
         {/* Messages */}
         <ScrollToBottom className="flex-1 overflow-y-auto px-4 py-4 z-10 relative">
           <div className="space-y-2">
             {filteredMessages.map((msg, i) => (
               <MessageBubble
-                key={msg._clientKey}
+                key={msg._id || msg._clientKey || i}
                 ref={i === filteredMessages.length - 1 ? lastMessageRef : null}
                 msg={msg}
                 isLast={i === filteredMessages.length - 1}
@@ -202,32 +235,36 @@ const ChatBox = () => {
               />
             ))}
 
-            {typingUserId && selectedChat?.members && (
-              <TypingIndicator
-                typingUser={selectedChat.members.find(
-                  (u) => u._id === typingUserId
-                )}
-              />
-            )}
+            {typingUserId &&
+              Array.isArray(selectedChat?.members) &&
+              selectedChat.members.some((u) => u?._id === typingUserId) && (
+                <TypingIndicator
+                  typingUser={selectedChat.members.find(
+                    (u) => u?._id === typingUserId
+                  )}
+                />
+              )}
           </div>
         </ScrollToBottom>
 
         {/* Chat Input */}
-        <ChatInput
-          newMessage={newMessage}
-          setNewMessage={setNewMessage}
-          mediaFile={mediaFile}
-          setMediaFile={setMediaFile}
-          onSend={handleSend}
-          onTyping={handleTyping}
-          onVoiceSend={handleVoiceSend}
-          replyToMessage={replyToMessage}
-          setReplyToMessage={setReplyToMessage}
-        />
+        {!forwardModalOpen && !showInviteModal && (
+          <ChatInput
+            newMessage={newMessage}
+            setNewMessage={setNewMessage}
+            mediaFile={mediaFile}
+            setMediaFile={setMediaFile}
+            onSend={handleSend}
+            onTyping={handleTyping}
+            onVoiceSend={handleVoiceSend}
+            replyToMessage={replyToMessage}
+            setReplyToMessage={setReplyToMessage}
+          />
+        )}
       </div>
 
       {/* Info Panel - Fixed width sidebar */}
-      {!selectedChat?.isGroup && showUserInfo && (
+      {!selectedChat?.isGroup && showUserInfoState && otherUser && (
         <UserInfoPopup
           user={otherUser}
           show={true}
@@ -235,11 +272,18 @@ const ChatBox = () => {
         />
       )}
 
-      {isGroup && showGroupInfo && (
-        <GroupInfoPopup
+      {isGroup && showGroupInfoState && (
+        <GroupInfoPopup 
           chat={selectedChat}
           show={true}
           onClose={() => dispatch(closeAllPopups())}
+          onUpdate={() =>
+            dispatch(
+              setSelectedChat(chats.find((c) => c._id === selectedChat._id))
+            )
+          }
+          showInviteModal={showInviteModal}
+          setShowInviteModal={setShowInviteModal}
         />
       )}
 

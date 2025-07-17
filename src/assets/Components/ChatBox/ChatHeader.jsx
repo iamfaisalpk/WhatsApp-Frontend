@@ -12,11 +12,11 @@ import {
   UserMinus,
 } from "lucide-react";
 import instance from "../../Services/axiosInstance";
-import { setSelectedChat, fetchChats } from "../../store/slices/chatSlice";
 import ChatSearch from "../chat/ChatSearch";
 import socket from "../../../../utils/socket";
 import { toggleGroupInfo, toggleUserInfo } from "../../store/slices/uiSlice";
-import GroupInfoPopup from "./GroupInfoPopup";
+import { fetchChats } from "../../../../utils/chatThunks";
+import { setSelectedChat } from "../../store/slices/chatSlice";
 
 const ChatHeader = ({ onBack, onSearch, onClearLocalMessages }) => {
   const dispatch = useDispatch();

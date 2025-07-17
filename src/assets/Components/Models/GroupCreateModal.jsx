@@ -11,6 +11,7 @@ const GroupCreateModal = ({ onClose, onGroupCreated }) => {
   const [users, setUsers] = useState([]);
   const [selectedMembers, setSelectedMembers] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [groupDescription, setGroupDescription] = useState("");
 
   const nameInputRef = useRef(null);
 
@@ -56,7 +57,8 @@ const GroupCreateModal = ({ onClose, onGroupCreated }) => {
     const formData = new FormData();
     formData.append("groupName", groupName);
     formData.append("members", JSON.stringify(selectedMembers));
-    
+    formData.append("groupDescription", groupDescription);
+
     if (groupAvatar) {
       formData.append("groupAvatar", groupAvatar);
       console.log("Sending groupAvatar:", groupAvatar);
@@ -71,7 +73,8 @@ const GroupCreateModal = ({ onClose, onGroupCreated }) => {
     try {
       const { data } = await instance.post("/api/chat/group", formData, {
         headers: {
-          'Content-Type': 'multipart/form-data',
+          "Content-Type": "multipart/form-data",
+          Authorization: `Bearer ${user?.token}`,
         },
       });
       console.log("Group creation response:", data);
@@ -95,9 +98,7 @@ const GroupCreateModal = ({ onClose, onGroupCreated }) => {
           <X size={20} />
         </button>
 
-        <h2 className="text-xl font-semibold mb-5 text-center">
-          New Group
-        </h2>
+        <h2 className="text-xl font-semibold mb-5 text-center">New Group</h2>
 
         {/* Group Avatar */}
         <div className="flex justify-center mb-4">
@@ -129,7 +130,16 @@ const GroupCreateModal = ({ onClose, onGroupCreated }) => {
           value={groupName}
           onChange={(e) => setGroupName(e.target.value)}
           placeholder="Group name"
-          className="w-full mb-4 px-4 py-2 rounded-full bg-[#2a3942] text-white outline-none"
+          className="w-full mb-3 px-4 py-2 rounded-full bg-[#2a3942] text-white outline-none"
+        />
+
+        {/* Description Input */}
+        <textarea
+          value={groupDescription}
+          onChange={(e) => setGroupDescription(e.target.value)}
+          placeholder="Add group description"
+          rows={2}
+          className="w-full mb-4 px-4 py-2 rounded-lg bg-[#2a3942] text-white outline-none resize-none"
         />
 
         {/* User List */}

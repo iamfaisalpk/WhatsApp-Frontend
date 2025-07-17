@@ -20,6 +20,7 @@ import { useDispatch, useSelector } from "react-redux";
 import EmojiPicker from "emoji-picker-react";
 import React, { useState, useRef, useEffect, forwardRef } from "react";
 import VoiceMessagePlayer from "./VoiceMessagePlayer";
+import { Link, useNavigate } from "react-router-dom";
 
 const MessageBubble = forwardRef((props, ref) => {
   const {
@@ -48,6 +49,8 @@ const MessageBubble = forwardRef((props, ref) => {
   const [dropdownPosition, setDropdownPosition] = useState({ openLeft: false });
   const currentUserId = useSelector((state) => state.auth.user?._id || null);
 
+  const navigate = useNavigate();
+
   const dropdownRef = useRef(null);
   const emojiPickerRef = useRef(null);
   const messageRef = useRef(null);
@@ -65,6 +68,15 @@ const MessageBubble = forwardRef((props, ref) => {
       return <FileText size={18} />;
     if (type.includes("code")) return <FileCode size={18} />;
     return <Paperclip size={18} />;
+  };
+
+  const extractInviteToken = (url) => {
+    try {
+      const parts = url.split("/preview/");
+      return parts[1];
+    } catch {
+      return "";
+    }
   };
 
   const formatFileSize = (bytes = 0) => {
@@ -345,7 +357,7 @@ const MessageBubble = forwardRef((props, ref) => {
               {msg.replyTo?.sender?._id === user._id
                 ? "You"
                 : msg.replyTo?.sender?.name || "Unknown"}
-            </div>
+            </div>  
             <div className="truncate italic text-gray-300">
               {getReplySnippet(msg.replyTo)}
             </div>
@@ -359,9 +371,64 @@ const MessageBubble = forwardRef((props, ref) => {
           </div>
         ) : (
           <>
-            {msg.text && (
-              <div className="whitespace-pre-wrap break-words">{msg.text}</div>
+            {msg.groupLink && (
+              <div
+                className={clsx(
+                  "group-link-preview rounded-md p-3 mb-2 border border-green-500 bg-green-900 text-white",
+                  isOwnMessage ? "text-right" : "text-left"
+                )}
+              >
+                <div className="font-semibold mb-1">Group Invite Link</div>
+
+                {/* ✅ Use Link from react-router-dom instead of window.open or <a> */}
+                <Link
+                  to={`/preview/${extractInviteToken(msg.groupLink)}`}
+                  className="truncate underline text-blue-300 hover:text-blue-400"
+                >
+                  {msg.groupLink}
+                </Link>
+              </div>
             )}
+
+            {msg.text && (
+              <div className="whitespace-pre-wrap break-words">
+                {
+                  msg.text.split(" ").map((word, index) => {
+                    if (
+                      word.startsWith("http://") ||
+                      word.startsWith("https://")
+                    ) {
+                      const isGroupInvite = word.includes("/preview/");
+                      return isGroupInvite ? (
+                        <Link
+                          key={index}
+                          to={`/preview/${extractInviteToken(word)}`}
+                          className="text-blue-400 underline hover:text-blue-500 mr-1"
+                        >
+                          {word}
+                        </Link>
+                      ) : (
+                        <Link
+                          key={index}
+                          href={word}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-blue-400 hover:underline mr-1"
+                        >
+                          {word}
+                        </Link>
+                      );
+                    }
+                    return (
+                      <span key={index} className="mr-1">
+                        {word}
+                      </span>
+                    );
+                  })
+                }
+              </div>
+            )}
+
             {msg.media?.url && (
               <div className="mt-2 cursor-pointer">
                 {msg.media.uploading ? (
@@ -436,7 +503,7 @@ const MessageBubble = forwardRef((props, ref) => {
                 alt="Sender"
                 className="w-6 h-6 rounded-full absolute -left-8 top-1 cursor-pointer border border-gray-700"
                 onClick={(e) => {
-                  e.stopPropagation(); 
+                  e.stopPropagation();
                   setSelectedUser(msg.sender);
                   setInfoPanelType("user");
                 }}

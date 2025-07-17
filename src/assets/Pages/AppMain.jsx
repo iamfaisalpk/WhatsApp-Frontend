@@ -16,12 +16,7 @@ import {
   Lock,
   MessageSquareText,
 } from "lucide-react";
-import { Outlet, useLocation, useNavigate } from "react-router-dom";
-import {
-  accessChat,
-  fetchChats,
-  setSelectedChat,
-} from "../store/slices/chatSlice";
+import { Outlet, useLocation, useNavigate } from "react-router-dom";;
 import ChatBox from "../Components/ChatBox/ChatBox";
 import instance from "../Services/axiosInstance";
 import {
@@ -32,6 +27,8 @@ import { useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import GroupCreateModal from "../Components/Models/GroupCreateModal";
 import ChatList from "../Components/chat/ChatList";
+import { accessChat, fetchChats } from "../../../utils/chatThunks";
+import { setSelectedChat } from "../store/slices/chatSlice";
 
 const AppMain = () => {
   const [activeTab, setActiveTab] = useState("All");

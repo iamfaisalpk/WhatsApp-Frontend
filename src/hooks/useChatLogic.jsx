@@ -30,7 +30,15 @@ const useChatLogic = () => {
 
   const addMessageSafely = useCallback((newMsg) => {
     setMessages((prev) => {
-      if (newMsg._id && prev.some((msg) => msg._id === newMsg._id)) return prev;
+      if (newMsg._id) {
+        const idx = prev.findIndex((msg) => msg._id === newMsg._id);
+        if (idx !== -1) {
+          const updated = [...prev];
+          updated[idx] = { ...updated[idx], ...newMsg }; 
+          return updated;
+        }
+      }
+
       if (newMsg._id && newMsg.tempId) {
         const idx = prev.findIndex((msg) => msg.tempId === newMsg.tempId);
         if (idx !== -1) {
@@ -57,7 +65,6 @@ const useChatLogic = () => {
       ];
     });
   }, []);
-  
 
   const markChatAsSeen = useCallback(async () => {
     if (!selectedChat?._id) return;
@@ -194,6 +201,9 @@ const useChatLogic = () => {
   } = {}) => {
     if (!newMessage && !mediaFile && !voiceFile) return;
 
+    console.log(" replyToMessage:", replyToMessage);
+    console.log(" replyParam:", replyParam);
+
     const tempId = uuidv4();
     const tempMsg = {
       _id: null,
@@ -237,7 +247,7 @@ const useChatLogic = () => {
       console.log(" Sending voice file:", voiceFile);
     }
     if (duration) {
-      formData.append("duration", duration.toString()); 
+      formData.append("duration", duration.toString());
       console.log(" Sending duration:", duration);
     }
     if (replyParam?._id) formData.append("replyTo", replyParam._id);

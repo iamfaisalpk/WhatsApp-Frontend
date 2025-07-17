@@ -23,7 +23,7 @@ export const sendMessage = createAsyncThunk(
         headers: { 'Content-Type': 'multipart/form-data' },
       });
 
-      return data.message;
+      return { message: data.message };
     } catch (err) {
       return rejectWithValue(err.response?.data?.message || 'Failed to send message');
     }
@@ -100,7 +100,7 @@ const messageSlice = createSlice({
       state.messages = [];
     },
     appendNewMessage: (state, action) => {
-      const msg = action.payload;
+      const msg = action.payload.message || action.payload; 
       const exists = state.messages.some(
         (m) => m._id === msg._id || (msg.tempId && m.tempId === msg.tempId)
       );
@@ -127,7 +127,7 @@ const messageSlice = createSlice({
       })
       .addCase(sendMessage.fulfilled, (state, action) => {
         state.loading = false;
-        const msg = action.payload;
+        const msg = action.payload.message || action.payload; 
         const exists = state.messages.some(
           (m) => m._id === msg._id || (msg.tempId && m.tempId === msg.tempId)
         );

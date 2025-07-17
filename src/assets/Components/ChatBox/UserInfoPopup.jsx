@@ -62,7 +62,7 @@ const UserInfoPopup = ({ user, onClose, show = true }) => {
         stiffness: 260,
         damping: 20,
             }}
-        className="w-80 h-full bg-[#161717] text-white shadow-lg border-l border-[#2a3942] flex-shrink-0 overflow-hidden">
+        className="w-[380px] h-full bg-[#161717] text-white shadow-lg border-l border-[#2a3942] flex-shrink-0 overflow-hidden">
         {/* Header */}
       <div className="flex justify-between items-center p-4 border-b border-[#2a3942]">
         <h2 className="text-lg font-medium">Contact info</h2>

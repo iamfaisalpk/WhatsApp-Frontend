@@ -53,9 +53,8 @@ const useAuthManager = () => {
           })
         );
       } catch (err) {
-        console.error("❌ Token refresh failed:", err);
+        console.error(" Token refresh failed:", err);
         dispatch(setSessionExpired(true));
-        localStorage.clear();
       } finally {
         dispatch(setSessionRestoring(false));
       }

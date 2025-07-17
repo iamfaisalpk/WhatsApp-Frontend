@@ -1,17 +1,18 @@
-import axios from 'axios';
-import { toast } from 'react-toastify';
+import axios from "axios";
+import { toast } from "react-toastify";
 import {
   setAuth,
   setSessionExpired,
   setSessionRestoring,
-} from '../store/slices/authSlice';
+} from "../store/slices/authSlice";
 
 const baseURL = import.meta.env.VITE_API_URL;
 
 const instance = axios.create({
   baseURL,
+  timeout: 120000,
   headers: {
-    'Content-Type': 'application/json',
+    "Content-Type": "application/json",
   },
 });
 
@@ -20,10 +21,10 @@ let store;
 const loadStore = async () => {
   if (!store) {
     try {
-      const mod = await import('../store/store');
+      const mod = await import("../store/store");
       store = mod.store;
     } catch (error) {
-      console.error('❌ Failed to load store:', error);
+      console.error(" Failed to load store:", error);
     }
   }
   return store;
@@ -41,35 +42,38 @@ const processQueue = (error, token = null) => {
   failedQueue = [];
 };
 
-// ✅ Add token to requests
-instance.interceptors.request.use((config) => {
-  const token = localStorage.getItem('authToken');
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
-  return config;
-}, (error) => Promise.reject(error));
+//  Add token to requests
+instance.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem("authToken");
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
 
-// ✅ Handle 401 errors & retry
+//  Handle 401 errors & retry
 instance.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
 
     if (!error.response) {
-      toast.error('⚠️ Network error. Please check your connection.');
+      toast.error(" Network error. Please check your connection.");
       return Promise.reject(error);
     }
 
     const { status } = error.response;
 
     if (status === 403) {
-      toast.error('❌ Access denied.');
+      toast.error(" Access denied.");
       return Promise.reject(error);
     }
 
     if (status >= 500) {
-      toast.error('💥 Server error. Please try again later.');
+      toast.error(" Server error. Please try again later.");
       return Promise.reject(error);
     }
 
@@ -93,26 +97,27 @@ instance.interceptors.response.use(
     isRefreshing = true;
 
     try {
-      const refreshToken = localStorage.getItem('refreshToken')?.trim();
-      if (!refreshToken) throw new Error('No refresh token available');
+      const refreshToken = localStorage.getItem("refreshToken")?.trim();
+      if (!refreshToken) throw new Error("No refresh token available");
 
       const storeInstance = await loadStore();
       storeInstance?.dispatch(setSessionRestoring(true));
 
-      console.log('🔄 Token expired, attempting refresh...');
+      console.log(" Token expired, attempting refresh...");
 
-      const res = await axios.post(`${baseURL}/api/token/refresh`, {
+      const res = await instance.post("/api/token/refresh", {
         refreshToken,
       });
 
       const { accessToken, refreshToken: newRefreshToken } = res.data;
 
-      if (!accessToken) throw new Error('No access token received');
+      if (!accessToken) throw new Error("No access token received");
 
-      localStorage.setItem('authToken', accessToken);
-      if (newRefreshToken) localStorage.setItem('refreshToken', newRefreshToken);
+      localStorage.setItem("authToken", accessToken);
+      if (newRefreshToken)
+        localStorage.setItem("refreshToken", newRefreshToken);
 
-      const user = JSON.parse(localStorage.getItem('user') || 'null');
+      const user = JSON.parse(localStorage.getItem("user") || "null");
       storeInstance?.dispatch(
         setAuth({
           token: accessToken,
@@ -124,25 +129,27 @@ instance.interceptors.response.use(
       processQueue(null, accessToken);
 
       originalRequest.headers.Authorization = `Bearer ${accessToken}`;
-      console.log('✅ Token refreshed via 401 handler');
+      console.log(" Token refreshed via 401 handler");
 
       return instance(originalRequest);
     } catch (refreshError) {
-      console.error('🔐 Token refresh failed:', refreshError);
+      console.error(" Token refresh failed:", refreshError);
 
-      if (refreshError.response?.status === 401 || refreshError.response?.status === 400) {
-        console.log('🚪 Session expired. Redirecting...');
-        localStorage.clear();
+      if (
+        refreshError.response?.status === 401 ||
+        refreshError.response?.status === 400
+      ) {
+        console.log(" Session expired. Redirecting...");
 
         const storeInstance = await loadStore();
         storeInstance?.dispatch(setSessionExpired(true));
-        toast.error('Session expired. Please log in again.');
+        toast.error("Session expired. Please log in again.");
 
-        if (window.location.pathname !== '/auth') {
-          setTimeout(() => (window.location.href = '/auth'), 1000);
+        if (window.location.pathname !== "/auth") {
+          setTimeout(() => (window.location.href = "/auth"), 1000);
         }
       } else {
-        toast.error('⚠️ Network error. Try again.');
+        toast.error(" Network error. Try again.");
       }
 
       processQueue(refreshError, null);

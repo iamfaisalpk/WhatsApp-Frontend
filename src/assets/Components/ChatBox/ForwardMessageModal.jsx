@@ -2,7 +2,6 @@ import React, { useState, useEffect } from "react";
 import instance from "../../Services/axiosInstance";
 import { useSelector } from "react-redux";
 import { Loader2, SendHorizonal } from "lucide-react";
-import MessageBubble from "./MessageBubble";
 
 const ForwardMessageModal = ({ isOpen, onClose, messageToForward }) => {
   const [chats, setChats] = useState([]);
@@ -53,8 +52,15 @@ const ForwardMessageModal = ({ isOpen, onClose, messageToForward }) => {
   if (!isOpen) return null;
 
   return (
-    <MessageBubble onClose={onClose}>
-      <div className="p-4 text-white w-[350px] sm:w-[400px]">
+    <>
+      {/* Backdrop */}
+      <div
+        className="fixed inset-0 bg-black bg-opacity-60 z-40"
+        onClick={onClose}
+      />
+
+      {/* Modal Box */}
+      <div className="fixed top-1/2 left-1/2 z-50 transform -translate-x-1/2 -translate-y-1/2 bg-[#111b21] p-6 rounded-lg w-[90%] max-w-md text-white shadow-lg">
         <h2 className="text-lg font-semibold mb-4">Forward to...</h2>
 
         {loading ? (
@@ -93,7 +99,10 @@ const ForwardMessageModal = ({ isOpen, onClose, messageToForward }) => {
                     </div>
 
                     {sendingTo === chat._id ? (
-                      <Loader2 size={18} className="animate-spin text-green-400" />
+                      <Loader2
+                        size={18}
+                        className="animate-spin text-green-400"
+                      />
                     ) : (
                       <SendHorizonal size={18} className="text-green-500" />
                     )}
@@ -110,7 +119,7 @@ const ForwardMessageModal = ({ isOpen, onClose, messageToForward }) => {
           Cancel
         </button>
       </div>
-    </MessageBubble>
+    </>
   );
 };
 

@@ -1,192 +1,24 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
-import axios from '../../Services/axiosInstance';
+import {
+    accessChat,
+    fetchChats,
+    createGroupChat,
+    renameGroup,
+    addToGroup,
+    removeFromGroup,
+    leaveGroup,
+    deleteChat,
+    toggleFavorite,
+    markAsRead,
+    markAsUnread,
+    getBlockedUsers,
+    toggleMuteChat,
+    toggleArchiveChat,
+    togglePinChat,
+    updateGroupAvatar
+} from "../../../../utils/chatThunks"
 
 const savedChat = JSON.parse(localStorage.getItem("selectedChat"));
-
-export const accessChat = createAsyncThunk(
-    'chat/accessChat',
-    async (userId, { rejectWithValue }) => {
-    try {
-        const { data } = await axios.post('/api/chat', { userId });
-        return data.chat;
-    } catch (err) {
-        return rejectWithValue(err.response?.data?.message || 'Failed to access chat');
-    }
-}
-);
-
-export const fetchChats = createAsyncThunk(
-    'chat/fetchChats',
-    async (_, { rejectWithValue }) => {
-    try {
-        const { data } = await axios.get('/api/chat');
-        return {
-        activeChats: data.activeChats,
-        archivedChats: data.archivedChats
-};
-
-    } catch (err) {
-        return rejectWithValue(err.response?.data?.message || 'Failed to fetch chats');
-    }
-}
-);
-
-export const createGroupChat = createAsyncThunk('chat/createGroupChat', async (formData, { rejectWithValue }) => {
-    try {
-        const { data } = await axios.post('/api/chat/group', formData, {
-            headers: { 'Content-Type': 'multipart/form-data' }
-        });
-        return data.group;
-    } catch (err) {
-        return rejectWithValue(err.response?.data?.message || 'Failed to create group');
-    }
-});
-
-export const renameGroup = createAsyncThunk('chat/renameGroup', async ({ chatId, groupName }, { rejectWithValue }) => {
-try {
-    const { data } = await axios.put('/api/chat/rename', { chatId, groupName });
-    return data.updatedChat;
-} catch (err) {
-    return rejectWithValue(err.response?.data?.message || 'Failed to rename group');
-}
-});
-
-export const addToGroup = createAsyncThunk('chat/addToGroup', async ({ chatId, userId }, { rejectWithValue }) => {
-    try {
-    const { data } = await axios.put('/api/chat/group-add', { chatId, userId });
-    return data.updatedChat;
-} catch (err) {
-    return rejectWithValue(err.response?.data?.message || 'Failed to add user');
-}
-});
-
-export const removeFromGroup = createAsyncThunk('chat/removeFromGroup', async ({ chatId, userId }, { rejectWithValue }) => {
-    try {
-    const { data } = await axios.put('/api/chat/group-remove', { chatId, userId });
-    return data.updatedChat;
-} catch (err) {
-    return rejectWithValue(err.response?.data?.message || 'Failed to remove user');
-}
-});
-
-export const leaveGroup = createAsyncThunk('chat/leaveGroup', async (chatId, { rejectWithValue }) => {
-    try {
-    const { data } = await axios.put('/api/chat/group-leave', { chatId });
-    return data.updatedChat;
-} catch (err) {
-    return rejectWithValue(err.response?.data?.message || 'Failed to leave group');
-}
-});
-
-export const deleteChat = createAsyncThunk(
-    'chat/deleteChat',
-    async (chatId, { rejectWithValue }) => {
-    try {
-        await axios.delete(`/api/chat/${chatId}`);
-        return chatId;
-    } catch (err) {
-        return rejectWithValue(err.response?.data?.message || 'Failed to delete chat');
-    }
-}
-);
-
-export const toggleFavorite = createAsyncThunk(
-    'chat/toggleFavorite',
-    async (chatId, { rejectWithValue }) => {
-    try {
-        const { data } = await axios.patch(`/api/chat/meta/${chatId}/favorite`);
-        return { chatId, isFavorite: data.isFavorite };
-    } catch (err) {
-        return rejectWithValue(err.response?.data?.message || 'Failed to toggle favorite');
-    }
-}
-);
-
-export const markAsRead = createAsyncThunk(
-    'chat/markAsRead',
-    async (chatId, { rejectWithValue }) => {
-    try {
-        await axios.post('/api/chat-meta/mark-as-read', { chatId });
-        return chatId;
-    } catch (err) {
-        return rejectWithValue(err.response?.data?.message || 'Failed to mark as read');
-    }
-}
-);
-
-export const markAsUnread = createAsyncThunk(
-    'chat/markAsUnread',
-    async (chatId, { rejectWithValue }) => {
-    try {
-        await axios.post('/api/chat-meta/mark-as-unread', { chatId });
-        return chatId;
-    } catch (err) {
-        return rejectWithValue(err.response?.data?.message || 'Failed to mark as unread');
-    }
-}
-);
-
-export const getBlockedUsers = createAsyncThunk(
-    "chat/getBlockedUsers",
-    async (_, { rejectWithValue }) => {
-    try {
-        const { data } = await axios.get("/api/users/blocked/list");
-        return data; 
-    } catch (err) {
-        return rejectWithValue(err.response?.data?.message || 'Failed to get blocked users');
-    }
-}
-);
-
-export const toggleMuteChat = createAsyncThunk(
-    'chat/toggleMute',
-    async (chatId, { rejectWithValue }) => {
-    try {
-        await axios.patch(`/api/chat/meta/${chatId}/mute`);
-        return chatId;
-    } catch (err) {
-        return rejectWithValue(err.response?.data?.message || 'Failed to toggle mute');
-    }
-}
-);
-
-export const toggleArchiveChat = createAsyncThunk(
-    'chat/toggleArchive',
-    async (chatId, { rejectWithValue }) => {
-    try {
-        await axios.patch(`/api/chat/meta/${chatId}/archive`);
-        return chatId;
-    } catch (err) {
-        return rejectWithValue(err.response?.data?.message || 'Failed to toggle archive');
-    }
-}
-);
-
-export const togglePinChat = createAsyncThunk(
-    'chat/togglePin',
-    async (chatId, { rejectWithValue }) => {
-    try {
-        await axios.patch(`/api/chat/meta/${chatId}/pin`);
-        return chatId;
-    } catch (err) {
-        return rejectWithValue(err.response?.data?.message || 'Failed to toggle pin');
-    }
-}
-);
-
-export const updateGroupAvatar = createAsyncThunk(
-    'chat/updateGroupAvatar', 
-    async ({ chatId, formData }, { rejectWithValue }) => {
-        try {
-            const { data } = await axios.put(`/api/chat/group-avatar/${chatId}`, formData, {
-                headers: { 'Content-Type': 'multipart/form-data' }
-            });
-            return data.chat || data.updatedChat;
-        } catch (err) {
-            return rejectWithValue(err.response?.data?.message || 'Failed to update group avatar');
-        }
-    }
-);
 
 const chatSlice = createSlice({
     name: 'chat',
@@ -201,69 +33,83 @@ const chatSlice = createSlice({
         error: null,
     },
     reducers: {
-messageReceived: (state, action) => {
-            const newMessage = action.payload;
-            const chatId = newMessage.conversationId || newMessage.chatId;
+        messageReceived: (state, action) => {
+        const newMessage = action.payload;
+        const chatId = newMessage.conversationId || newMessage.chatId;
+        if (!chatId) {
+        console.warn("Message received without chatId:", newMessage);
+        return;
+        }
 
-            if (!chatId) {
-            console.warn("Message received without chatId:", newMessage);
-            return;
+        const currentUserId = newMessage.currentUserId;
+        const isMyMessage = newMessage.sender?._id === currentUserId;
+        const existingIndex = state.chats.findIndex(chat => chat._id === chatId);
+    
+        const alreadyExists =
+        state.selectedChat &&
+        state.selectedChat._id === chatId &&
+        Array.isArray(state.selectedChat.messages) &&
+        state.selectedChat.messages.some((msg) => {
+            if (newMessage._id && msg._id === newMessage._id) return true;
+            if (newMessage.tempId && msg.tempId === newMessage.tempId) return true;
+            return false;
+        });
+
+        if (alreadyExists) {
+        console.log("⚠️ Duplicate message skipped:", newMessage._id || newMessage.tempId);
+        return;
         }
-            const currentUserId = newMessage.currentUserId;
-            const isMyMessage = newMessage.sender?._id === currentUserId;
-            const existingIndex = state.chats.findIndex(chat => chat._id === chatId);
-            if (existingIndex !== -1) {
-            const existingChat = state.chats[existingIndex];
-        
-            const updatedChat = {
-                ...existingChat,
-                lastMessage: newMessage,
-                lastMessageTime: newMessage.timestamp || new Date().toISOString(),
-                unreadCount: isMyMessage
-                ? existingChat.unreadCount || 0
-                : state.selectedChat?._id === chatId
-                ? 0
-                : (existingChat.unreadCount || 0) + 1,
-                isRead: isMyMessage
-                ? existingChat.isRead
-                : state.selectedChat?._id === chatId
-                ? true
-                : false,
-            };
-        
-            // ✅ Create new array to trigger re-render
-            state.chats = [
-                updatedChat,
-                ...state.chats.filter((_, i) => i !== existingIndex),
-            ];
-        
-            // ✅ Update selected chat if it's open
-            if (state.selectedChat?._id === chatId) {
-                state.selectedChat = {
-                ...state.selectedChat,
-                lastMessage: newMessage,
-                lastMessageTime: newMessage.timestamp || new Date().toISOString(),
-                unreadCount: 0,
-                isRead: true,
-            };
-                localStorage.setItem("selectedChat", JSON.stringify(state.selectedChat));
-            }
-            } else {
-            const newChat = {
-                _id: chatId,
-                lastMessage: newMessage,
-                lastMessageTime: newMessage.timestamp || new Date().toISOString(),
-                unreadCount: isMyMessage ? 0 : 1,
-                isRead: isMyMessage ? true : false,
-                isGroup: newMessage.isGroup || false,
-                members: newMessage.members || [],
-                groupName: newMessage.groupName || '',
-                groupAvatar: newMessage.groupAvatar || '/WhatsApp.jpg',
-            };
-        
-            state.chats = [newChat, ...state.chats];
+    
+        if (existingIndex !== -1) {
+        const existingChat = state.chats[existingIndex];
+        const updatedChat = {
+            ...existingChat,
+            lastMessage: newMessage,
+            lastMessageTime: newMessage.timestamp || new Date().toISOString(),
+            unreadCount: isMyMessage
+            ? existingChat.unreadCount || 0
+            : state.selectedChat?._id === chatId
+            ? 0
+            : (existingChat.unreadCount || 0) + 1,
+            isRead: isMyMessage
+            ? existingChat.isRead
+            : state.selectedChat?._id === chatId
+            ? true
+            : false,
+        };
+        state.chats = [
+            updatedChat,
+            ...state.chats.filter((_, i) => i !== existingIndex),
+        ];
+        } else {
+        const newChat = {
+            _id: chatId,
+            lastMessage: newMessage,
+            lastMessageTime: newMessage.timestamp || new Date().toISOString(),
+            unreadCount: isMyMessage ? 0 : 1,
+            isRead: isMyMessage ? true : false,
+            isGroup: newMessage.isGroup || false,
+            members: newMessage.members || [],
+            groupName: newMessage.groupName || '',
+            groupAvatar: newMessage.groupAvatar || '/WhatsApp.jpg',
+        };
+        state.chats = [newChat, ...state.chats];
         }
-        },
+
+        // Add the new message to the selectedChat.messages if the chat is open
+        if (state.selectedChat?._id === chatId) {
+        state.selectedChat = {
+            ...state.selectedChat,
+            lastMessage: newMessage,
+            lastMessageTime: newMessage.timestamp || new Date().toISOString(),
+            unreadCount: 0,
+            isRead: true,
+            messages: [...(state.selectedChat.messages || []), newMessage],
+        };
+        localStorage.setItem("selectedChat", JSON.stringify(state.selectedChat));
+        }
+    },
+
 
 
 messageSent: (state, action) => {

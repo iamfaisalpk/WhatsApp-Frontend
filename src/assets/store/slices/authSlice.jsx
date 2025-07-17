@@ -64,7 +64,6 @@ export const refreshAccessToken = createAsyncThunk(
         });
       }
 
-      // ✅ Save new access token
       if (data.accessToken) {
         localStorage.setItem("authToken", data.accessToken);
       }
