@@ -16,7 +16,7 @@ import {
   Lock,
   MessageSquareText,
 } from "lucide-react";
-import { Outlet, useLocation, useNavigate } from "react-router-dom";;
+import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import ChatBox from "../Components/ChatBox/ChatBox";
 import instance from "../Services/axiosInstance";
 import {
@@ -29,6 +29,7 @@ import GroupCreateModal from "../Components/Models/GroupCreateModal";
 import ChatList from "../Components/chat/ChatList";
 import { accessChat, fetchChats } from "../../../utils/chatThunks";
 import { setSelectedChat } from "../store/slices/chatSlice";
+import SaveContact from "./SaveContact";
 
 const AppMain = () => {
   const [activeTab, setActiveTab] = useState("All");
@@ -43,6 +44,24 @@ const AppMain = () => {
   const { selectedChat, chats } = useSelector((state) => state.chat);
   const menuRef = useRef();
   const [showGroupModal, setShowGroupModal] = useState(false);
+  const [showSaveContact, setShowSaveContact] = useState(false);
+
+  const [contacts, setContacts] = useState([]);
+
+  useEffect(() => {
+    const fetchContacts = async () => {
+      try {
+        const res = await instance.get("/api/users/contacts/list");
+        setContacts(res.data.contacts);
+      } catch (err) {
+        console.error("Error fetching contacts:", err);
+      }
+    };
+
+    if (user?._id) {
+      fetchContacts();
+    }
+  }, [user]);
 
   useEffect(() => {
     if (!user || !user._id) return;
@@ -139,9 +158,8 @@ const AppMain = () => {
     { id: "Unread", label: "Unread" },
     { id: "Favorites", label: "Favorites" },
     { id: "Groups", label: "Groups" },
-    
   ];
-  
+
   const sidebarIcons = [
     { icon: MessageSquareText, label: "Chats", route: "/app" },
     { icon: Target, label: "Status" },
@@ -152,8 +170,16 @@ const AppMain = () => {
 
   const menuItems = [
     { icon: Users, label: "New group", action: () => setShowGroupModal(true) },
-    { icon: UserCircle, label: "New contact", action: () => {} },
-    { icon: Archive, label: "Archived", action: () => setActiveTab("Archived") },
+    {
+      icon: UserCircle,
+      label: "New contact",
+      action: () => setShowSaveContact(true),
+    },
+    {
+      icon: Archive,
+      label: "Archived",
+      action: () => setActiveTab("Archived"),
+    },
     { icon: Bell, label: "Notifications", action: () => {} },
     { icon: Settings, label: "Settings", action: () => {} },
     {
@@ -266,7 +292,7 @@ const AppMain = () => {
                       setShowProfileMenu(false);
                     }}
                     className="w-full px-4 py-2 flex items-center space-x-3 rounded-sm hover:bg-[#2a2a2a] text-white text-sm cursor-pointer overflow-hidden transition-colors duration-150"
-                    >
+                  >
                     <item.icon size={16} />
                     <span>{item.label}</span>
                   </button>
@@ -346,7 +372,24 @@ const AppMain = () => {
 
           {/* Chat List - Use ChatList Component */}
           <div className="flex-1 overflow-y-auto bg-[#161717]">
-            <ChatList activeTab={activeTab} />
+            {showSaveContact ? (
+              <div className="p-4">
+                <button
+                  onClick={() => setShowSaveContact(false)}
+                  className="text-[#25D366] text-sm mb-4 hover:underline"
+                >
+                  ← Back to Chats
+                </button>
+                <SaveContact
+                  onSaved={() => {
+                    setShowSaveContact(false);
+                    dispatch(fetchChats());
+                  }}
+                />
+              </div>
+            ) : (
+              <ChatList activeTab={activeTab} contacts={contacts} />
+            )}
           </div>
         </div>
       )}

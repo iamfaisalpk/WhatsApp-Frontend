@@ -46,8 +46,8 @@ const InviteModal = ({
         <div className="flex-1 overflow-y-auto">
           {searchQuery && filteredResults.length > 0 ? (
             filteredResults.map((user) => {
-              const alreadyInGroup = chat.members.some(
-                (m) => m._id === user._id
+              const alreadyInGroup = chat?.members?.some(
+                (m) => m?._id === user._id
               );
               const isSelected = selectedUsers.includes(user._id);
 
@@ -59,9 +59,7 @@ const InviteModal = ({
                       ? "cursor-not-allowed bg-[#1f1f1f] opacity-50"
                       : "hover:bg-[#2a3942] cursor-pointer"
                   }`}
-                  onClick={() =>
-                    !alreadyInGroup && handleUserSelect(user._id)
-                  }
+                  onClick={() => !alreadyInGroup && handleUserSelect(user._id)}
                 >
                   <div className="flex items-center space-x-3">
                     <img

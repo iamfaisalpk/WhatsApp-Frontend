@@ -25,13 +25,14 @@ const GroupCreateModal = ({ onClose, onGroupCreated }) => {
     const fetchUsers = async () => {
       try {
         const { data } = await instance.get("/api/users", {
-          params: { search: "all" },
+          params: { search: "" }, 
         });
         setUsers(data.filter((u) => u._id !== user._id));
       } catch (err) {
         console.error("Error fetching users", err);
       }
     };
+
     fetchUsers();
   }, [user._id]);
 

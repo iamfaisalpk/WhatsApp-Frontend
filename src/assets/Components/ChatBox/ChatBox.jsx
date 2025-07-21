@@ -35,6 +35,8 @@ const ChatBox = () => {
   const [infoPanelType, setInfoPanelType] = useState(null);
   const [selectedUser, setSelectedUser] = useState(null);
 
+  const selectedChatRef = useRef(selectedChat);
+
   const { showUserInfo: showUserInfoState, showGroupInfo: showGroupInfoState } =
     useSelector((state) => state.ui);
 
@@ -65,13 +67,21 @@ const ChatBox = () => {
     markChatAsSeen,
   } = useChatLogic();
 
-  const filteredMessages = searchText
-    ? messages.filter((msg) =>
-        msg.text?.toLowerCase().includes(searchText.toLowerCase())
-      )
-    : messages;
+  const safeSearch = (searchText || "").toString().toLowerCase();
+
+  const filteredMessages = messages.filter((msg) => {
+  if (!searchText) return true; 
+
+  const text = msg.text || "";
+  return text.toLowerCase().includes(safeSearch);
+});
+
 
   const isGroup = selectedChat?.isGroup;
+
+  useEffect(() => {
+    selectedChatRef.current = selectedChat;
+  }, [selectedChat]);
 
   useEffect(() => {
     if (!socket) return;
@@ -86,11 +96,55 @@ const ChatBox = () => {
       );
     };
 
+    const handleUserLeftGroup = ({ chatId, userId, updatedChat }) => {
+      const currentChat = selectedChatRef.current;
+      if (!chatId || !userId || !currentChat) return;
+
+      if (currentChat._id === chatId) {
+        if (userId === user._id) {
+          dispatch(setSelectedChat(null));
+          localStorage.removeItem("selectedChat");
+        } else {
+          dispatch(setSelectedChat(updatedChat));
+        }
+      }
+
+      dispatch(fetchChats());
+    };
+
+    const handleUserAddedToGroup = ({ chatId, updatedChat }) => {
+      if (selectedChatRef.current?._id === chatId) {
+        dispatch(setSelectedChat(updatedChat));
+      }
+      dispatch(fetchChats());
+    };
+
+    const handleUserRemovedFromGroup = ({ chatId, userId, updatedChat }) => {
+      const currentChat = selectedChatRef.current;
+
+      if (currentChat?._id === chatId) {
+        if (userId === user._id) {
+          dispatch(setSelectedChat(null));
+          localStorage.removeItem("selectedChat");
+        } else {
+          dispatch(setSelectedChat(updatedChat));
+        }
+      }
+      dispatch(fetchChats());
+    };
+
     socket.on("seen-update", handleSeenUpdate);
+    socket.on("left-group", handleUserLeftGroup);
+    socket.on("user-added-to-group", handleUserAddedToGroup);
+    socket.on("user-removed-from-group", handleUserRemovedFromGroup);
+
     return () => {
       socket.off("seen-update", handleSeenUpdate);
+      socket.off("left-group", handleUserLeftGroup);
+      socket.off("user-added-to-group", handleUserAddedToGroup);
+      socket.off("user-removed-from-group", handleUserRemovedFromGroup);
     };
-  }, [socket, dispatch]);
+  }, [socket, dispatch, user._id]);
 
   useEffect(() => {
     const savedChat = JSON.parse(localStorage.getItem("selectedChat"));
@@ -273,7 +327,7 @@ const ChatBox = () => {
       )}
 
       {isGroup && showGroupInfoState && (
-        <GroupInfoPopup 
+        <GroupInfoPopup
           chat={selectedChat}
           show={true}
           onClose={() => dispatch(closeAllPopups())}

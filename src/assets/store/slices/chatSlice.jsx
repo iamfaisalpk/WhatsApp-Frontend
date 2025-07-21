@@ -33,6 +33,20 @@ const chatSlice = createSlice({
         error: null,
     },
     reducers: {
+        updateChatMembers: (state, action) => {
+        const { chatId, updatedChat } = action.payload;
+        const index = state.chats.findIndex(chat => chat._id === chatId);
+        if (index !== -1) {
+        state.chats[index] = updatedChat;
+    }
+    },
+
+    removeChat: (state, action) => {
+    const chatId = action.payload;
+    state.chats = state.chats.filter(chat => chat._id !== chatId);
+    },
+
+        
         messageReceived: (state, action) => {
         const newMessage = action.payload;
         const chatId = newMessage.conversationId || newMessage.chatId;
@@ -56,7 +70,7 @@ const chatSlice = createSlice({
         });
 
         if (alreadyExists) {
-        console.log("⚠️ Duplicate message skipped:", newMessage._id || newMessage.tempId);
+        console.log(" Duplicate message skipped:", newMessage._id || newMessage.tempId);
         return;
         }
     
@@ -96,7 +110,6 @@ const chatSlice = createSlice({
         state.chats = [newChat, ...state.chats];
         }
 
-        // Add the new message to the selectedChat.messages if the chat is open
         if (state.selectedChat?._id === chatId) {
         state.selectedChat = {
             ...state.selectedChat,
@@ -114,9 +127,7 @@ const chatSlice = createSlice({
 
 messageSent: (state, action) => {
     const { chatId, message } = action.payload;
-    
-    // Find and update the chat
-    const chatIndex = state.chats.findIndex(chat => chat._id === chatId);
+        const chatIndex = state.chats.findIndex(chat => chat._id === chatId);
     
     if (chatIndex !== -1) {
         const chat = state.chats[chatIndex];
@@ -128,11 +139,9 @@ messageSent: (state, action) => {
             isRead: true,
         };
         
-        // Move to top
         state.chats.splice(chatIndex, 1);
         state.chats.unshift(updatedChat);
         
-        // Update selectedChat if it's active
         if (state.selectedChat?._id === chatId) {
             state.selectedChat = {
                 ...state.selectedChat,
@@ -153,17 +162,14 @@ messageSent: (state, action) => {
                 const isMyMessage = senderId === currentUserId;
                 const isSelectedChat = state.selectedChat?._id === chatId;
 
-                // Update last message
                 state.chats[chatIndex].lastMessage = lastMessage;
                 state.chats[chatIndex].lastMessageTime = lastMessage.timestamp || new Date().toISOString();
 
-                // Only update unread count if it's not my message and not the selected chat
                 if (!isMyMessage && !isSelectedChat) {
                     state.chats[chatIndex].unreadCount = (chat.unreadCount || 0) + 1;
                     state.chats[chatIndex].isRead = false;
                 }
 
-                // Move to top of chat list
                 const updatedChat = state.chats.splice(chatIndex, 1)[0];
                 state.chats.unshift(updatedChat);
             }
@@ -188,7 +194,6 @@ messageSent: (state, action) => {
             state.selectedChat = chatData;
             localStorage.setItem("selectedChat", JSON.stringify(chatData));
 
-            // Also update the chat in the chats array
             const chatIndex = state.chats.findIndex(c => c._id === payload._id);
             if (chatIndex !== -1) {
                 state.chats[chatIndex].unreadCount = 0;
@@ -196,14 +201,11 @@ messageSent: (state, action) => {
             }
         },
 
-        // FIXED: Manual unread count update with proper validation
         updateUnreadCount: (state, action) => {
             const { chatId, senderId, currentUserId } = action.payload;
             const chat = state.chats.find((c) => c._id === chatId);
 
-            // Only increment if it's not the current user's message
             if (chat && senderId !== currentUserId) {
-                // Don't increment if chat is currently selected
                 if (state.selectedChat?._id !== chatId) {
                     chat.unreadCount = (chat.unreadCount || 0) + 1;
                     chat.isRead = false;
@@ -211,7 +213,6 @@ messageSent: (state, action) => {
             }
         },
 
-        // FIXED: Seen by handler with proper null checks
         updateSeenByInSelectedChat: (state, action) => {
             const { conversationId, readBy, messageIds } = action.payload;
 
@@ -236,7 +237,6 @@ messageSent: (state, action) => {
                     });
                 }
 
-                // Ensure members array exists and has proper null checks
                 if (state.selectedChat.members && Array.isArray(state.selectedChat.members)) {
                     const isAlreadyMember = state.selectedChat.members.some(
                         (u) => u && (u._id || u) === seenById
@@ -249,13 +249,11 @@ messageSent: (state, action) => {
             }
         },
 
-        // Helper reducer to manually refresh a chat
         refreshChat: (state, action) => {
             const chatId = action.payload;
             const chatIndex = state.chats.findIndex(c => c._id === chatId);
             
             if (chatIndex !== -1) {
-                // Force a re-render by creating a new object
                 state.chats[chatIndex] = { ...state.chats[chatIndex] };
             }
         },
@@ -573,7 +571,9 @@ export const {
     updateLastMessage,
     messageReceived,
     messageSent,
-    refreshChat
+    refreshChat,
+    removeChat,
+    updateChatMembers
 } = chatSlice.actions;
 
 export default chatSlice.reducer;

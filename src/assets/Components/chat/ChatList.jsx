@@ -28,6 +28,7 @@ import {
   toggleFavorite,
   toggleMuteChat,
 } from "../../../../utils/chatThunks";
+import instance from "../../Services/axiosInstance";
 
 const ChatList = ({ activeTab }) => {
   const dispatch = useDispatch();
@@ -107,7 +108,11 @@ const ChatList = ({ activeTab }) => {
   useEffect(() => {
     const handleClickOutside = (event) => {
       // Only close if dropdown is active and click is outside
-      if (activeDropdown && dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+      if (
+        activeDropdown &&
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target)
+      ) {
         setActiveDropdown(null);
       }
     };
@@ -187,7 +192,7 @@ const ChatList = ({ activeTab }) => {
   const handleDropdownToggle = (e, chatId) => {
     e.stopPropagation();
     e.preventDefault();
-    
+
     const newActiveDropdown = activeDropdown === chatId ? null : chatId;
     setActiveDropdown(newActiveDropdown);
   };
@@ -515,23 +520,28 @@ const ChatList = ({ activeTab }) => {
                         >
                           <Archive className="w-4 h-4 text-[#8696a0]" />
                           <span>
-                            {chat.isArchived ? "Unarchive chat" : "Archive chat"}
+                            {chat.isArchived
+                              ? "Unarchive chat"
+                              : "Archive chat"}
                           </span>
                         </button>
 
                         <div className="border-t border-[#2a3942] my-1"></div>
 
-                        <button
-                          className="w-full px-4 py-2 text-sm text-left hover:bg-[#2a3942] text-[#ea6962] hover:text-[#ea6962] flex items-center gap-3 transition-colors"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDeleteChat(e, chat._id);
-                            setActiveDropdown(null);
-                          }}
-                        >
-                          <Trash2 className="w-4 h-4" />
-                          <span>Delete chat</span>
-                        </button>
+                        {/* Show delete button only if user is group admin or it's not a group chat */}
+                        {(!chat.isGroup || chat.groupAdmin === user._id) && (
+                          <button
+                            className="w-full px-4 py-2 text-sm text-left hover:bg-[#2a3942] text-[#ea6962] hover:text-[#ea6962] flex items-center gap-3 transition-colors"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteChat(e, chat._id);
+                              setActiveDropdown(null);
+                            }}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                            <span>Delete chat</span>
+                          </button>
+                        )}
                       </div>
                     )}
                   </div>

@@ -254,7 +254,7 @@ const useChatLogic = () => {
     formData.append("tempId", tempId);
 
     // Debug FormData contents
-    console.log("📤 FormData contents:");
+    console.log(" FormData contents:");
     for (let [key, value] of formData.entries()) {
       console.log(`${key}:`, value);
     }
@@ -285,7 +285,6 @@ const useChatLogic = () => {
       pendingMessagesRef.current.delete(tempId);
       setMessages((prev) => prev.filter((m) => m.tempId !== tempId));
 
-      // Show user-friendly error
       alert(
         `Failed to send message: ${err.response?.data?.message || err.message}`
       );
