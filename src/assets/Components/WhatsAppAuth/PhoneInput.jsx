@@ -21,7 +21,7 @@ const PhoneInputComponent = ({ setStep }) => {
     const handlePhoneChange = useCallback((value, country) => {
         // Only log significant changes (not every keystroke)
         if (value.length % 3 === 0 || value.length < 3) {
-            console.log("📱 Phone updated:", value.slice(-4).padStart(4, '*'));
+            console.log(" Phone updated:", value.slice(-4).padStart(4, '*'));
         }
         dispatch(setPhoneNumber(value));
         dispatch(setCountryCode(country.countryCode));

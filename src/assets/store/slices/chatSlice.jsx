@@ -340,14 +340,15 @@ messageSent: (state, action) => {
                 state.error = null;
             })
             .addCase(fetchChats.fulfilled, (state, action) => {
-                state.loading = false;
+            state.loading = false;
 
             const formatChat = (chat) => ({
-            ...chat,
-            groupPic: chat.groupAvatar || chat.groupPic || chat.groupProfilePic,
-            groupAvatar: chat.groupAvatar || chat.groupPic || chat.groupProfilePic,
-            unreadCount: chat.unreadCount || 0,
-            isRead: chat.isRead !== undefined ? chat.isRead : true,
+                ...chat,
+                groupPic: chat.groupAvatar || chat.groupPic || chat.groupProfilePic,
+                groupAvatar: chat.groupAvatar || chat.groupPic || chat.groupProfilePic,
+                unreadCount: chat.unreadCount || 0,
+                isRead: chat.isRead !== undefined ? chat.isRead : true,
+                isFavorite: Boolean(chat.isFavorite),
             });
 
             state.chats = action.payload.activeChats.map(formatChat);
@@ -451,20 +452,24 @@ messageSent: (state, action) => {
             })
             
             .addCase(toggleFavorite.fulfilled, (state, action) => {
-                const { chatId, isFavorite } = action.payload;
-                
-                const chat = state.chats.find(c => c._id === chatId);
-                if (chat) {
-                    chat.isFavorite = isFavorite !== undefined ? isFavorite : !chat.isFavorite;
-                }
-                
-                if (state.selectedChat && state.selectedChat._id === chatId) {
-                    state.selectedChat.isFavorite = isFavorite !== undefined ? isFavorite : !state.selectedChat.isFavorite;
-                    localStorage.setItem("selectedChat", JSON.stringify(state.selectedChat));
-                }
-            })
+            const { chatId, isFavorite } = action.payload;
+            
+            const chat = state.chats.find(c => c._id === chatId || c.id === chatId);
+            if (chat) {
+                chat.isFavorite = isFavorite;
+            }
 
-            // FIXED: Mark as read properly resets unread count
+            const archivedChat = state.archivedChats.find(c => c._id === chatId || c.id === chatId);
+            if (archivedChat) {
+                archivedChat.isFavorite = isFavorite;
+            }
+
+            if (state.selectedChat && (state.selectedChat._id === chatId || state.selectedChat.id === chatId)) {
+                state.selectedChat.isFavorite = isFavorite;
+                localStorage.setItem("selectedChat", JSON.stringify(state.selectedChat));
+            }
+        })
+
             .addCase(markAsRead.fulfilled, (state, action) => {
                 const chatId = action.payload;
                 const chat = state.chats.find(c => c._id === chatId);

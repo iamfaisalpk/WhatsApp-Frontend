@@ -35,7 +35,7 @@ const OTPInput = () => {
   const autoVerifyTimeoutRef = useRef(null);
   const loadingTimeoutRef = useRef(null);
 
-  // ✅ Resend Timer
+  //  Resend Timer
   useEffect(() => {
     let timer;
     if (resendTimer > 0) {
@@ -44,7 +44,7 @@ const OTPInput = () => {
     return () => clearTimeout(timer);
   }, [resendTimer, dispatch]);
 
-  // ✅ Reset loading if stuck
+  //  Reset loading if stuck
   useEffect(() => {
     if (loading || isVerifying) {
       loadingTimeoutRef.current = setTimeout(() => {
@@ -57,7 +57,7 @@ const OTPInput = () => {
     return () => clearTimeout(loadingTimeoutRef.current);
   }, [loading, isVerifying, dispatch]);
 
-  // ✅ Handle verified → navigate
+  //  Handle verified → navigate
   useEffect(() => {
     if (hasNavigated.current || !token || !user || !user.phone) return;
 
@@ -66,19 +66,19 @@ const OTPInput = () => {
       cleanupTimeouts();
       dispatch(setOtp(''));
       dispatch(clearMessages());
-      console.log("🟡 New user → /setup-profile");
+      console.log(" New user → /setup-profile");
       navigate('/setup-profile', { replace: true });
     } else {
       hasNavigated.current = true;
       cleanupTimeouts();
       dispatch(setOtp(''));
       dispatch(clearMessages());
-      console.log("✅ Existing user → /app");
+      console.log(" Existing user → /app");
       navigate('/app', { replace: true });
     }
   }, [token, user, dispatch, navigate]);
 
-  // ✅ Cleanup all timeouts
+  //  Cleanup all timeouts
   const cleanupTimeouts = useCallback(() => {
     clearTimeout(autoVerifyTimeoutRef.current);
     clearTimeout(loadingTimeoutRef.current);
@@ -86,7 +86,7 @@ const OTPInput = () => {
     loadingTimeoutRef.current = null;
   }, []);
 
-  // ✅ Auto verify on 6 digits
+  //  Auto verify on 6 digits
   useEffect(() => {
     if (otp.length === 6 && !loading && !isVerifying && !verificationAttempted.current) {
       autoVerifyTimeoutRef.current = setTimeout(() => {
@@ -97,7 +97,7 @@ const OTPInput = () => {
     return () => clearTimeout(autoVerifyTimeoutRef.current);
   }, [otp, loading, isVerifying, dispatch]);
 
-  // ✅ Manual verify
+  //  Manual verify
   const handleManualVerify = useCallback(() => {
     if (otp.length === 6 && !loading && !isVerifying) {
       verificationAttempted.current = true;
@@ -105,7 +105,7 @@ const OTPInput = () => {
     }
   }, [otp, loading, isVerifying, dispatch]);
 
-  // ✅ Handle input change
+  //  Handle input change
   const handleChange = useCallback((e, idx) => {
     const { value } = e.target;
     if (!/^\d*$/.test(value)) return;
@@ -117,14 +117,14 @@ const OTPInput = () => {
     if (value && idx < 5) inputRefs.current[idx + 1]?.focus();
   }, [otp, error, dispatch]);
 
-  // ✅ Handle backspace
+  //  Handle backspace
   const handleKeyDown = useCallback((e, idx) => {
     if (e.key === 'Backspace' && !otp[idx] && idx > 0) {
       inputRefs.current[idx - 1]?.focus();
     }
   }, [otp]);
 
-  // ✅ Resend OTP
+  //  Resend OTP
   const handleResend = useCallback(() => {
     verificationAttempted.current = false;
     cleanupTimeouts();
@@ -132,7 +132,7 @@ const OTPInput = () => {
     dispatch(sendOTP());
   }, [dispatch, cleanupTimeouts]);
 
-  // ✅ Change number
+  //  Change number
   const handleChangePhoneNumber = useCallback(() => {
     hasNavigated.current = false;
     verificationAttempted.current = false;
@@ -144,7 +144,7 @@ const OTPInput = () => {
 
   const isVerifyDisabled = useMemo(() => loading || isVerifying || otp.length !== 6, [loading, isVerifying, otp.length]);
 
-  // ✅ Cleanup on unmount
+  //  Cleanup on unmount
   useEffect(() => {
     return () => cleanupTimeouts();
   }, [cleanupTimeouts]);

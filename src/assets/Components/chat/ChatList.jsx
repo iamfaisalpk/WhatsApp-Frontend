@@ -148,7 +148,7 @@ const ChatList = ({ activeTab }) => {
   const handleToggleFavorite = async (e, chatId) => {
     e.stopPropagation();
     try {
-      await dispatch(toggleFavorite(chatId)).unwrap();
+      await dispatch(toggleFavorite(chatId)).unwrap(); 
     } catch (error) {
       console.error("Error toggling favorite:", error);
     }
