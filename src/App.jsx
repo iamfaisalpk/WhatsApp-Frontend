@@ -5,7 +5,6 @@ import {
   Navigate,
 } from "react-router-dom";
 import { useSelector, useDispatch } from "react-redux";
-import WhatsAppAuth from "./assets/Components/WhatsAppAuth/WhatsAppAuth";
 import ProtectedRoute from "./assets/Components/ProtectedRoute";
 import AppMain from "./assets/Pages/AppMain";
 import ProfileSetup from "./assets/Pages/ProfileSetup";
@@ -16,6 +15,7 @@ import ChatBox from "./assets/Components/ChatBox/ChatBox";
 import socket, { connectSocket } from "../utils/socket";
 import { messageReceived } from "./assets/store/slices/chatSlice";
 import GroupInvitePreview from "./assets/Pages/GroupInvitePreview";
+import WhatsAppAuth from "./assets/Components/WhatsAppAuth/WhatsAppAuth";
 
 const router = createBrowserRouter([
   { path: "/", element: <Navigate to="/auth" replace /> },
