@@ -1,8 +1,7 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import socket from "../../../../utils/socket";
 const baseURL = import.meta.env.VITE_API_URL;
-console.log('🔍 Base URL from env:', baseURL);
-console.log('🔍 Full environment:', import.meta.env);
+
 
 
 const tokenFromStorage = localStorage.getItem("authToken");
