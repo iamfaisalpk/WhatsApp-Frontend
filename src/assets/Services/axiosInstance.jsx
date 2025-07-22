@@ -16,7 +16,6 @@ const instance = axios.create({
   },
 });
 
-// Lazy-load Redux store to avoid circular imports
 let store;
 const loadStore = async () => {
   if (!store) {
