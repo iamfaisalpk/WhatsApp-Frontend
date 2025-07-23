@@ -49,15 +49,11 @@ export const refreshAccessToken = createAsyncThunk(
         });
       }
 
-      const response = await fetch(`${baseURL}/api/auth/refresh-token`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ refreshToken }),
+      const response = await instance.post("/api/auth/refresh-token", {
+        refreshToken,
       });
 
-      const data = await response.json();
+      const data = response.data;
 
       if (!response.ok) {
         return rejectWithValue({
