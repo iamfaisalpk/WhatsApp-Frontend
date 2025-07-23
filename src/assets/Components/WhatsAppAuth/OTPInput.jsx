@@ -7,6 +7,7 @@ import {
   FaSpinner,
   FaExclamationCircle,
   FaCheckCircle,
+  FaShieldAlt,
 } from "react-icons/fa";
 import {
   setCurrentStep,
@@ -170,29 +171,37 @@ const OTPInput = () => {
   }, [cleanupTimeouts]);
 
   return (
-    <div className="min-h-screen bg-[#f0f2f5] flex flex-col items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-br from-green-50 via-gray-50 to-blue-50 flex flex-col items-center justify-center p-4">
       {/* Header */}
-      <div className="flex items-center space-x-2 mb-4">
-        <div className="bg-[#25d366] p-2 rounded-full">
-          <FaWhatsapp className="text-white text-lg" />
+      <div className="flex items-center space-x-3 mb-8">
+        <div className="bg-gradient-to-r from-[#25d366] to-[#20c758] p-3 rounded-full shadow-lg">
+          <FaWhatsapp className="text-white text-xl" />
         </div>
-        <h1 className="text-lg font-bold text-gray-800">WhatsApp</h1>
+        <h1 className="text-2xl font-bold text-gray-800 tracking-tight">WhatsApp</h1>
       </div>
 
       {/* Card */}
-      <div className="bg-white border border-gray-300 rounded-lg w-full max-w-sm p-6 shadow-sm">
-        <h2 className="text-base font-semibold text-gray-800 text-center mb-2">
+      <div className="bg-white border-0 rounded-2xl w-full max-w-md p-8 shadow-xl shadow-gray-200/50 backdrop-blur-sm">
+        {/* Security Badge */}
+        <div className="flex items-center justify-center mb-6">
+          <div className="bg-green-50 border border-green-200 rounded-full px-4 py-2 flex items-center space-x-2">
+            <FaShieldAlt className="text-green-600 text-sm" />
+            <span className="text-green-700 text-xs font-medium">Secure Verification</span>
+          </div>
+        </div>
+
+        <h2 className="text-xl font-bold text-gray-800 text-center mb-3">
           Verify your phone number
         </h2>
-        <p className="text-xs text-gray-600 text-center mb-4">
+        <p className="text-sm text-gray-600 text-center mb-8 leading-relaxed">
           Enter the 6-digit code sent to{" "}
-          <span className="font-medium">
+          <span className="font-semibold text-gray-800">
             {countryCode} {phoneNumber}
           </span>
         </p>
 
         {/* OTP Boxes */}
-        <div className="flex justify-center space-x-2 mb-3">
+        <div className="flex justify-center space-x-3 mb-6">
           {Array.from({ length: 6 }).map((_, idx) => (
             <input
               key={idx}
@@ -204,14 +213,14 @@ const OTPInput = () => {
               onChange={(e) => handleChange(e, idx)}
               onKeyDown={(e) => handleKeyDown(e, idx)}
               disabled={loading || isVerifying}
-              className={`w-10 h-12 border rounded text-center text-lg outline-none transition-all duration-200
-                ${error ? "border-red-300 bg-red-50" : "border-gray-300"}
+              className={`w-12 h-14 border-2 rounded-xl text-center text-xl font-bold outline-none transition-all duration-300 transform
+                ${error ? "border-red-300 bg-red-50 shake" : "border-gray-200"}
                 ${
                   loading || isVerifying
                     ? "bg-gray-100 cursor-not-allowed"
-                    : "focus:ring-2 focus:ring-[#25d366] focus:border-[#25d366]"
+                    : "focus:ring-4 focus:ring-green-100 focus:border-green-400 hover:border-green-300"
                 }
-                ${otp[idx] ? "bg-green-50 border-green-300" : ""}
+                ${otp[idx] ? "bg-green-50 border-green-400 scale-105 shadow-md" : "hover:shadow-sm"}
               `}
             />
           ))}
@@ -219,24 +228,29 @@ const OTPInput = () => {
 
         {/* Messages */}
         {error && (
-          <div className="flex items-center bg-red-100 text-red-700 px-3 py-2 rounded-md mt-2 text-xs space-x-2">
-            <FaExclamationCircle className="text-sm" />
-            <span>{error}</span>
+          <div className="flex items-center bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl mb-4 text-sm space-x-3 animate-slideIn">
+            <FaExclamationCircle className="text-red-500 text-lg flex-shrink-0" />
+            <span className="font-medium">{error}</span>
           </div>
         )}
         {success && success !== "Login successful!" && (
-          <div className="flex items-center bg-green-100 text-green-700 px-3 py-2 rounded-md mt-2 text-xs space-x-2">
-            <FaCheckCircle className="text-sm" />
-            <span>{success}</span>
+          <div className="flex items-center bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-xl mb-4 text-sm space-x-3 animate-slideIn">
+            <FaCheckCircle className="text-green-500 text-lg flex-shrink-0" />
+            <span className="font-medium">{success}</span>
           </div>
         )}
 
-        {/* Test OTP (only in dev) */}
+        {/* Test OTP (Enhanced Design) */}
         {generatedOtpForTest &&
           import.meta.env.VITE_SHOW_TEST_OTP === "true" && (
-            <div className="bg-gray-100 text-gray-700 px-3 py-2 rounded text-center text-sm mt-3">
-              Test OTP:{" "}
-              <span className="font-mono font-bold">{generatedOtpForTest}</span>
+            <div className="bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200 text-emerald-800 px-4 py-3 rounded-xl text-center text-sm mb-4 shadow-sm">
+              <div className="flex items-center justify-center space-x-2">
+                <div className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse"></div>
+                <span className="font-medium">Development OTP:</span>
+                <span className="font-mono font-bold text-lg bg-white px-3 py-1 rounded-lg border border-emerald-200 shadow-sm">
+                  {generatedOtpForTest}
+                </span>
+              </div>
             </div>
           )}
 
@@ -244,42 +258,59 @@ const OTPInput = () => {
         <button
           onClick={handleManualVerify}
           disabled={isVerifyDisabled}
-          className="w-full bg-[#25d366] hover:bg-[#20c758] disabled:bg-gray-400 disabled:cursor-not-allowed text-white py-2.5 rounded-md font-medium flex items-center justify-center mt-4 transition-colors duration-200"
+          className="w-full bg-gradient-to-r from-[#25d366] to-[#20c758] hover:from-[#20c758] hover:to-[#1da851] disabled:from-gray-400 disabled:to-gray-500 disabled:cursor-not-allowed text-white py-4 rounded-xl font-semibold flex items-center justify-center mt-6 transition-all duration-300 transform hover:scale-[1.02] hover:shadow-lg active:scale-[0.98] shadow-md"
         >
           {loading || isVerifying ? (
-            <div className="flex items-center space-x-2">
-              <FaSpinner className="animate-spin text-sm" />
-              <span>Verifying...</span>
+            <div className="flex items-center space-x-3">
+              <FaSpinner className="animate-spin text-lg" />
+              <span className="text-lg">Verifying...</span>
             </div>
           ) : (
-            <div className="flex items-center space-x-2">
-              <FaCheck className="text-sm" />
-              <span>Verify</span>
+            <div className="flex items-center space-x-3">
+              <FaCheck className="text-lg" />
+              <span className="text-lg">Verify Code</span>
             </div>
           )}
         </button>
 
         {/* Footer Links */}
-        <div className="text-center text-xs text-gray-500 mt-4 space-y-2">
+        <div className="text-center text-sm text-gray-500 mt-8 space-y-3">
           <button
             onClick={handleChangePhoneNumber}
             disabled={loading || isVerifying}
-            className="text-[#25d366] hover:text-[#20c758] hover:underline font-medium disabled:text-gray-400"
+            className="text-[#25d366] hover:text-[#20c758] hover:underline font-medium disabled:text-gray-400 transition-colors duration-200 flex items-center justify-center space-x-2"
           >
-            ← Change phone number
+            <span>←</span>
+            <span>Change phone number</span>
           </button>
+          
+          <div className="flex items-center justify-center">
+            <div className="h-px bg-gray-200 flex-1"></div>
+            <span className="px-4 text-xs text-gray-400">or</span>
+            <div className="h-px bg-gray-200 flex-1"></div>
+          </div>
+
           {resendTimer > 0 ? (
-            <p className="text-gray-400">Resend code in {resendTimer}s</p>
+            <div className="flex items-center justify-center space-x-2">
+              <div className="w-2 h-2 bg-gray-400 rounded-full animate-pulse"></div>
+              <p className="text-gray-400 font-medium">Resend code in {resendTimer}s</p>
+            </div>
           ) : (
             <button
               onClick={handleResend}
               disabled={loading || isVerifying}
-              className="text-[#25d366] hover:text-[#20c758] hover:underline font-medium disabled:text-gray-400"
+              className="text-[#25d366] hover:text-[#20c758] hover:underline font-semibold disabled:text-gray-400 transition-all duration-200 hover:scale-105"
             >
               Resend OTP
             </button>
           )}
         </div>
+      </div>
+
+      {/* Bottom Trust Indicator */}
+      <div className="mt-8 flex items-center space-x-2 text-xs text-gray-400">
+        <FaShieldAlt className="text-green-500" />
+        <span>Your phone number is safe and secure</span>
       </div>
     </div>
   );
