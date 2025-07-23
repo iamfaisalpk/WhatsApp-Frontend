@@ -1,32 +1,38 @@
-import React, { useEffect, useRef, useCallback, useMemo } from 'react';
-import { useSelector, useDispatch } from 'react-redux';
-import { useNavigate } from 'react-router-dom';
-import { FaWhatsapp, FaCheck, FaSpinner, FaExclamationCircle, FaCheckCircle } from 'react-icons/fa';
-import { 
-  setCurrentStep, 
-  setOtp, 
-  setResendTimer, 
-  setOtpAndClear, 
-  sendOTP, 
-  verifyOTP, 
-  clearMessages 
-} from '../../store/slices/authSlice';
+import React, { useEffect, useRef, useCallback, useMemo } from "react";
+import { useSelector, useDispatch } from "react-redux";
+import { useNavigate } from "react-router-dom";
+import {
+  FaWhatsapp,
+  FaCheck,
+  FaSpinner,
+  FaExclamationCircle,
+  FaCheckCircle,
+} from "react-icons/fa";
+import {
+  setCurrentStep,
+  setOtp,
+  setResendTimer,
+  setOtpAndClear,
+  sendOTP,
+  verifyOTP,
+  clearMessages,
+} from "../../store/slices/authSlice";
 
 const OTPInput = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
-  const { 
-    phoneNumber, 
-    countryCode, 
-    otp, 
-    loading, 
-    isVerifying, 
-    error, 
-    success, 
-    resendTimer, 
-    generatedOtpForTest, 
-    user, 
-    token 
+  const {
+    phoneNumber,
+    countryCode,
+    otp,
+    loading,
+    isVerifying,
+    error,
+    success,
+    resendTimer,
+    generatedOtpForTest,
+    user,
+    token,
   } = useSelector((state) => state.auth);
 
   const inputRefs = useRef([]);
@@ -64,17 +70,17 @@ const OTPInput = () => {
     if (!user.name || !user.profilePic) {
       hasNavigated.current = true;
       cleanupTimeouts();
-      dispatch(setOtp(''));
+      dispatch(setOtp(""));
       dispatch(clearMessages());
       console.log(" New user → /setup-profile");
-      navigate('/setup-profile', { replace: true });
+      navigate("/setup-profile", { replace: true });
     } else {
       hasNavigated.current = true;
       cleanupTimeouts();
-      dispatch(setOtp(''));
+      dispatch(setOtp(""));
       dispatch(clearMessages());
       console.log(" Existing user → /app");
-      navigate('/app', { replace: true });
+      navigate("/app", { replace: true });
     }
   }, [token, user, dispatch, navigate]);
 
@@ -88,7 +94,12 @@ const OTPInput = () => {
 
   //  Auto verify on 6 digits
   useEffect(() => {
-    if (otp.length === 6 && !loading && !isVerifying && !verificationAttempted.current) {
+    if (
+      otp.length === 6 &&
+      !loading &&
+      !isVerifying &&
+      !verificationAttempted.current
+    ) {
       autoVerifyTimeoutRef.current = setTimeout(() => {
         verificationAttempted.current = true;
         dispatch(verifyOTP());
@@ -106,23 +117,29 @@ const OTPInput = () => {
   }, [otp, loading, isVerifying, dispatch]);
 
   //  Handle input change
-  const handleChange = useCallback((e, idx) => {
-    const { value } = e.target;
-    if (!/^\d*$/.test(value)) return;
+  const handleChange = useCallback(
+    (e, idx) => {
+      const { value } = e.target;
+      if (!/^\d*$/.test(value)) return;
 
-    const updatedOtp = otp.substring(0, idx) + value + otp.substring(idx + 1);
-    dispatch(setOtp(updatedOtp));
+      const updatedOtp = otp.substring(0, idx) + value + otp.substring(idx + 1);
+      dispatch(setOtp(updatedOtp));
 
-    if (error) dispatch(clearMessages());
-    if (value && idx < 5) inputRefs.current[idx + 1]?.focus();
-  }, [otp, error, dispatch]);
+      if (error) dispatch(clearMessages());
+      if (value && idx < 5) inputRefs.current[idx + 1]?.focus();
+    },
+    [otp, error, dispatch]
+  );
 
   //  Handle backspace
-  const handleKeyDown = useCallback((e, idx) => {
-    if (e.key === 'Backspace' && !otp[idx] && idx > 0) {
-      inputRefs.current[idx - 1]?.focus();
-    }
-  }, [otp]);
+  const handleKeyDown = useCallback(
+    (e, idx) => {
+      if (e.key === "Backspace" && !otp[idx] && idx > 0) {
+        inputRefs.current[idx - 1]?.focus();
+      }
+    },
+    [otp]
+  );
 
   //  Resend OTP
   const handleResend = useCallback(() => {
@@ -137,12 +154,15 @@ const OTPInput = () => {
     hasNavigated.current = false;
     verificationAttempted.current = false;
     cleanupTimeouts();
-    dispatch(setCurrentStep('phone'));
-    dispatch(setOtpAndClear(''));
+    dispatch(setCurrentStep("phone"));
+    dispatch(setOtpAndClear(""));
     dispatch(clearMessages());
   }, [dispatch, cleanupTimeouts]);
 
-  const isVerifyDisabled = useMemo(() => loading || isVerifying || otp.length !== 6, [loading, isVerifying, otp.length]);
+  const isVerifyDisabled = useMemo(
+    () => loading || isVerifying || otp.length !== 6,
+    [loading, isVerifying, otp.length]
+  );
 
   //  Cleanup on unmount
   useEffect(() => {
@@ -165,7 +185,10 @@ const OTPInput = () => {
           Verify your phone number
         </h2>
         <p className="text-xs text-gray-600 text-center mb-4">
-          Enter the 6-digit code sent to <span className="font-medium">{countryCode} {phoneNumber}</span>
+          Enter the 6-digit code sent to{" "}
+          <span className="font-medium">
+            {countryCode} {phoneNumber}
+          </span>
         </p>
 
         {/* OTP Boxes */}
@@ -177,14 +200,18 @@ const OTPInput = () => {
               type="text"
               inputMode="numeric"
               maxLength="1"
-              value={otp[idx] || ''}
+              value={otp[idx] || ""}
               onChange={(e) => handleChange(e, idx)}
               onKeyDown={(e) => handleKeyDown(e, idx)}
               disabled={loading || isVerifying}
               className={`w-10 h-12 border rounded text-center text-lg outline-none transition-all duration-200
-                ${error ? 'border-red-300 bg-red-50' : 'border-gray-300'}
-                ${(loading || isVerifying) ? 'bg-gray-100 cursor-not-allowed' : 'focus:ring-2 focus:ring-[#25d366] focus:border-[#25d366]'}
-                ${otp[idx] ? 'bg-green-50 border-green-300' : ''}
+                ${error ? "border-red-300 bg-red-50" : "border-gray-300"}
+                ${
+                  loading || isVerifying
+                    ? "bg-gray-100 cursor-not-allowed"
+                    : "focus:ring-2 focus:ring-[#25d366] focus:border-[#25d366]"
+                }
+                ${otp[idx] ? "bg-green-50 border-green-300" : ""}
               `}
             />
           ))}
@@ -197,7 +224,7 @@ const OTPInput = () => {
             <span>{error}</span>
           </div>
         )}
-        {success && success !== 'Login successful!' && (
+        {success && success !== "Login successful!" && (
           <div className="flex items-center bg-green-100 text-green-700 px-3 py-2 rounded-md mt-2 text-xs space-x-2">
             <FaCheckCircle className="text-sm" />
             <span>{success}</span>
@@ -205,11 +232,10 @@ const OTPInput = () => {
         )}
 
         {/* Test OTP (only in dev) */}
-        {generatedOtpForTest && process.env.NODE_ENV === 'development' && (
-          <div className="mt-2 text-xs text-orange-600 bg-orange-100 px-3 py-2 rounded-md border border-orange-200">
-            <strong>Test OTP:</strong> {generatedOtpForTest}
-          </div>
-        )}
+        {generatedOtpForTest &&
+          process.env.REACT_APP_SHOW_TEST_OTP === "true" && (
+            <div>Test OTP: {generatedOtpForTest}</div>
+          )}
 
         {/* Verify Button */}
         <button
@@ -217,7 +243,7 @@ const OTPInput = () => {
           disabled={isVerifyDisabled}
           className="w-full bg-[#25d366] hover:bg-[#20c758] disabled:bg-gray-400 disabled:cursor-not-allowed text-white py-2.5 rounded-md font-medium flex items-center justify-center mt-4 transition-colors duration-200"
         >
-          {(loading || isVerifying) ? (
+          {loading || isVerifying ? (
             <div className="flex items-center space-x-2">
               <FaSpinner className="animate-spin text-sm" />
               <span>Verifying...</span>
