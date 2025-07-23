@@ -78,7 +78,6 @@ export const refreshAccessToken = createAsyncThunk(
   }
 );
 
-
 export const sendOTP = createAsyncThunk(
   "auth/sendOTP",
   async (_, { getState, rejectWithValue }) => {
@@ -167,9 +166,8 @@ export const testConnection = createAsyncThunk(
   "auth/testConnection",
   async (_, { rejectWithValue }) => {
     try {
-      const response = await fetch(`${baseURL}/api/test`);
-      const data = await response.json();
-      return data;
+      const response = await instance.get("/api/test");
+      return response.data;
     } catch (error) {
       return rejectWithValue({
         message: "Cannot connect to backend server",
