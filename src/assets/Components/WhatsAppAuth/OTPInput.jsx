@@ -233,7 +233,7 @@ const OTPInput = () => {
 
         {/* Test OTP (only in dev) */}
         {generatedOtpForTest &&
-          process.env.REACT_APP_SHOW_TEST_OTP === "true" && (
+          import.meta.env.VITE_SHOW_TEST_OTP === "true" && (
             <div>Test OTP: {generatedOtpForTest}</div>
           )}
 
