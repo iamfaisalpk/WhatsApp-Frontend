@@ -334,7 +334,10 @@ const authSlice = createSlice({
         state.loading = false;
         state.success = "OTP sent successfully!";
         state.sessionId = action.payload.sessionId || "";
-        if (process.env.NODE_ENV === "development" && action.payload.otp) {
+        if (
+          import.meta.env.VITE_SHOW_TEST_OTP === "true" &&
+          action.payload.otp
+        ) {
           state.generatedOtpForTest = action.payload.otp;
         }
       })
