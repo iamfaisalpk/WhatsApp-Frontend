@@ -234,13 +234,9 @@ const OTPInput = () => {
         {/* Test OTP (only in dev) */}
         {generatedOtpForTest &&
           import.meta.env.VITE_SHOW_TEST_OTP === "true" && (
-            <div className="bg-orange-100 border border-orange-300 text-orange-800 px-4 py-3 rounded-md mt-3 shadow-sm">
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-medium">Development OTP:</span>
-                <span className="font-mono text-lg font-bold bg-white px-3 py-1 rounded border">
-                  {generatedOtpForTest}
-                </span>
-              </div>
+            <div className="bg-gray-100 text-gray-700 px-3 py-2 rounded text-center text-sm mt-3">
+              Test OTP:{" "}
+              <span className="font-mono font-bold">{generatedOtpForTest}</span>
             </div>
           )}
 
