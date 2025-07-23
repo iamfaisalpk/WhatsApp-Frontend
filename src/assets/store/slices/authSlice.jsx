@@ -1,8 +1,7 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import socket from "../../../../utils/socket";
+import instance from "../../Services/axiosInstance";
 const baseURL = import.meta.env.VITE_API_URL;
-
-
 
 const tokenFromStorage = localStorage.getItem("authToken");
 const userFromStorage = JSON.parse(localStorage.getItem("user")) || null;
@@ -41,7 +40,7 @@ const formatPhoneNumber = (countryCode, phoneNumber) => {
 
 export const refreshAccessToken = createAsyncThunk(
   "auth/refreshAccessToken",
-  async (_, { rejectWithValue, dispatch }) => {
+  async (_, { rejectWithValue }) => {
     try {
       const refreshToken = localStorage.getItem("refreshToken");
       if (!refreshToken) {
@@ -79,27 +78,22 @@ export const refreshAccessToken = createAsyncThunk(
   }
 );
 
+
 export const sendOTP = createAsyncThunk(
   "auth/sendOTP",
   async (_, { getState, rejectWithValue }) => {
     const { phoneNumber, countryCode } = getState().auth;
+    const fullPhone = formatPhoneNumber(countryCode, phoneNumber);
 
     try {
-      const fullPhone = formatPhoneNumber(countryCode, phoneNumber);
-
-      const response = await fetch(`${baseURL}/api/auth/send-otp`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phone: fullPhone }),
+      const response = await instance.post("/api/auth/send-otp", {
+        phone: fullPhone,
       });
 
-      const data = await response.json();
-      if (!response.ok) return rejectWithValue(data);
-      return data;
+      return response.data;
     } catch (error) {
       return rejectWithValue({
-        message:
-          error.message || "Network error. Please check your backend server.",
+        message: error.response?.data?.message || "Failed to send OTP",
         details: error.toString(),
       });
     }
@@ -109,74 +103,49 @@ export const sendOTP = createAsyncThunk(
 export const verifyOTP = createAsyncThunk(
   "auth/verifyOTP",
   async (_, { getState, rejectWithValue }) => {
-    const state = getState().auth;
-    const { phoneNumber, countryCode, otp, sessionId, user } = state;
+    const { phoneNumber, countryCode, otp, sessionId, user } = getState().auth;
 
-    if (user) {
-      return rejectWithValue({ message: "User already verified" });
-    }
+    if (user) return rejectWithValue({ message: "User already verified" });
+
+    const fullPhone = formatPhoneNumber(countryCode, phoneNumber);
+    const cleanOtp = otp.trim();
+
+    if (!fullPhone)
+      return rejectWithValue({ message: "Phone number is required" });
+    if (!cleanOtp) return rejectWithValue({ message: "OTP is required" });
+    if (cleanOtp.length !== 6 || !/^\d{6}$/.test(cleanOtp))
+      return rejectWithValue({ message: "OTP must be 6 numeric digits" });
+
+    const payload = {
+      phone: fullPhone,
+      otp: cleanOtp,
+      ...(sessionId && { sessionId }),
+    };
 
     try {
-      const fullPhone = formatPhoneNumber(countryCode, phoneNumber);
-      const cleanOtp = otp.trim();
+      const response = await instance.post("/api/auth/verify-otp", payload);
+      return response.data;
+    } catch (error) {
+      const status = error.response?.status;
+      let errorMessage =
+        error.response?.data?.message || "OTP verification failed";
 
-      if (!fullPhone)
-        return rejectWithValue({ message: "Phone number is required" });
-      if (!cleanOtp) return rejectWithValue({ message: "OTP is required" });
-      if (cleanOtp.length !== 6)
-        return rejectWithValue({
-          message: `OTP must be 6 digits (got ${cleanOtp.length})`,
-        });
-      if (!/^\d{6}$/.test(cleanOtp))
-        return rejectWithValue({ message: "OTP must contain only numbers" });
-
-      const requestPayload = {
-        phone: fullPhone,
-        otp: cleanOtp,
-        ...(sessionId && { sessionId }),
-      };
-
-      const response = await fetch(
-        `${import.meta.env.VITE_API_URL}/api/auth/verify-otp`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Accept: "application/json",
-          },
-          body: JSON.stringify(requestPayload),
+      if (status === 400) {
+        if (
+          errorMessage.includes("not found") ||
+          errorMessage.includes("expired")
+        ) {
+          errorMessage =
+            "OTP has expired or is invalid. Please request a new OTP.";
+        } else if (errorMessage.includes("invalid")) {
+          errorMessage = "Invalid OTP. Please check and try again.";
         }
-      );
-
-      const data = await response.json();
-      console.log("response otp", data);
-
-      if (!response.ok) {
-        let errorMessage = data.message || "OTP verification failed";
-        if (response.status === 400) {
-          if (
-            data.message?.includes("not found") ||
-            data.message?.includes("expired")
-          ) {
-            errorMessage =
-              "OTP has expired or is invalid. Please request a new OTP.";
-          } else if (data.message?.includes("invalid")) {
-            errorMessage = "Invalid OTP. Please check and try again.";
-          }
-        }
-        return rejectWithValue({
-          ...data,
-          message: errorMessage,
-          status: response.status,
-        });
       }
 
-      return data;
-    } catch (error) {
       return rejectWithValue({
-        message: error.message || "Network error. Please try again.",
+        message: errorMessage,
+        status,
         details: error.toString(),
-        type: "NETWORK_ERROR",
       });
     }
   }
@@ -184,9 +153,13 @@ export const verifyOTP = createAsyncThunk(
 
 export const resendOTP = createAsyncThunk(
   "auth/resendOTP",
-  async (_, { getState, dispatch, rejectWithValue }) => {
-    dispatch(clearMessages());
-    return dispatch(sendOTP()).unwrap();
+  async (_, { dispatch, rejectWithValue }) => {
+    try {
+      dispatch(clearMessages());
+      return await dispatch(sendOTP()).unwrap();
+    } catch (error) {
+      return rejectWithValue(error);
+    }
   }
 );
 
