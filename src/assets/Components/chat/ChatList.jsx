@@ -311,6 +311,7 @@
 
 
 
+
 import React, { useEffect, useState, useRef } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
@@ -515,13 +516,13 @@ const ChatList = ({ activeTab }) => {
                   </span>
                 )}
 
-                <div className="relative z-50">
+                <div className="relative z-50" style={{ cursor: 'pointer' }}>
                   <button
                     onClick={(e) => handleDropdownToggle(e, chatId)}
                     className="p-1 hover:bg-[#2a3942] rounded"
-                    style={{ cursor: 'pointer' }}
+                    style={{ cursor: 'pointer !important' }}
                   >
-                    <MoreVertical size={18} />
+                    <MoreVertical size={18} style={{ cursor: 'pointer' }} />
                   </button>
 
                   {isOpen && (
