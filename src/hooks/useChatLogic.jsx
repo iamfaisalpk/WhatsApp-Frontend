@@ -433,6 +433,7 @@ const useChatLogic = () => {
     const handleNewMessage = (msg) => {
       if (msg.conversationId !== selectedChat._id) return;
       if (processedMessageIdsRef.current.has(msg._id)) return;
+      if (msg.sender._id === user._id) return; // Prevent adding own messages from socket to avoid duplication
       addMessageSafely(msg);
       markMessageAsDelivered(msg._id);
     };
