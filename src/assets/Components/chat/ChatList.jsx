@@ -569,10 +569,9 @@ const ChatList = ({ activeTab }) => {
   const [activeDropdown, setActiveDropdown] = useState(null);
   const dropdownRef = useRef(null);
 
-  // Close dropdown on outside click
   useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+    const handleClickOutside = (e) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
         setActiveDropdown(null);
       }
     };
@@ -593,168 +592,112 @@ const ChatList = ({ activeTab }) => {
     setActiveDropdown(activeDropdown === chatId ? null : chatId);
   };
 
-  const formatTimestamp = (timestamp) => {
-    if (!timestamp) return "";
-    const date = new Date(timestamp);
+  const formatTimestamp = (ts) => {
+    if (!ts) return "";
+    const date = new Date(ts);
     const now = new Date();
-    const diffDays = Math.floor((now - date) / (1000 * 60 * 60 * 24));
-
-    if (diffDays === 0) return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-    if (diffDays === 1) return "Yesterday";
-    if (diffDays < 7) return date.toLocaleDateString([], { weekday: "long" });
+    const diff = (now - date) / (1000 * 60 * 60 * 24);
+    if (diff < 1) return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    if (diff < 2) return "Yesterday";
+    if (diff < 7) return date.toLocaleDateString([], { weekday: "long" });
     return date.toLocaleDateString([], { day: "2-digit", month: "2-digit", year: "2-digit" });
   };
 
   const getMessagePreview = (chat) => {
     if (!chat.lastMessage) return "No messages yet";
-    const msg = chat.lastMessage;
-    if (msg.media) {
-      if (msg.media.type?.startsWith("image/")) return "Photo";
-      if (msg.media.type?.startsWith("video/")) return "Video";
-      if (msg.media.type?.startsWith("audio/")) return "Audio";
-      return "Document";
-    }
-    if (msg.voiceNote) return "Voice message";
-    if (msg.location) return "Location";
-    if (msg.contact) return "Contact";
-    return msg.text || "Message";
+    const m = chat.lastMessage;
+    if (m.media) return m.media.type.startsWith("image/") ? "Photo" : m.media.type.startsWith("video/") ? "Video" : m.media.type.startsWith("audio/") ? "Audio" : "Document";
+    if (m.voiceNote) return "Voice message";
+    return m.text || "Message";
   };
 
   const getMessageStatus = (chat) => {
-    if (!chat.lastMessage || !user || chat.lastMessage.sender?._id !== user._id) return null;
-    const status = chat.lastMessage.status;
-    if (status === "sent") return <Check className="w-4 h-4 text-gray-400" />;
-    if (status === "delivered") return <CheckCheck className="w-4 h-4 text-gray-400" />;
-    if (status === "read") return <CheckCheck className="w-4 h-4 text-[#53bdeb]" />;
+    if (!chat.lastMessage || chat.lastMessage.sender?._id !== user._id) return null;
+    const s = chat.lastMessage.status;
+    if (s === "sent") return <Check className="w-4 h-4 text-gray-400" />;
+    if (s === "delivered") return <CheckCheck className="w-4 h-4 text-gray-400" />;
+    if (s === "read") return <CheckCheck className="w-4 h-4 text-[#53bdeb]" />;
     return null;
   };
 
-  // Filter and sort chats based on active tab
-  const filteredChats = (activeTab === "Archived" ? archivedChats : chats)
+  const allChats = activeTab === "Archived" ? archivedChats : chats;
+  const filteredChats = allChats
     .filter((chat) => {
       if (!chat?._id) return false;
-      if (activeTab === "Unread") return chat.unreadCount > 0 && !chat.isRead;
+      if (activeTab === "Unread") return chat.unreadCount > 0;
       if (activeTab === "Favorites") return chat.isFavorite;
       if (activeTab === "Groups") return chat.isGroup;
       return true;
     })
-    .sort((a, b) => {
-      if (a.isPinned && !b.isPinned) return -1;
-      if (!a.isPinned && b.isPinned) return 1;
-      return new Date(b.lastMessageTime || b.lastMessage?.timestamp || 0) -
-             new Date(a.lastMessageTime || a.lastMessage?.timestamp || 0);
-    });
+    .sort((a, b) => new Date(b.lastMessageTime || b.lastMessage?.timestamp || 0) - new Date(a.lastMessageTime || a.lastMessage?.timestamp || 0));
 
   if (filteredChats.length === 0) {
-    return (
-      <div className="p-8 text-center text-gray-400 text-sm">
-        {activeTab === "Archived" ? "No archived chats" :
-         activeTab === "Favorites" ? "No favorite chats" :
-         activeTab === "Groups" ? "No group chats" :
-         activeTab === "Unread" ? "No unread chats" : "No chats yet"}
-      </div>
-    );
+    return <div className="p-8 text-center text-gray-400 text-sm">No chats</div>;
   }
 
   return (
     <div className="overflow-y-auto h-full">
       {filteredChats.map((chat) => {
-        const otherUser = !chat.isGroup && Array.isArray(chat.members)
-          ? chat.members.find((m) => m?._id && String(m._id) !== String(user._id))
-          : null;
-
+        const otherUser = !chat.isGroup && chat.members?.find(m => String(m._id) !== String(user._id));
         const isBlocked = otherUser?.isBlocked || otherUser?.isBlockedByMe;
-        const isOnline = otherUser?.isOnline && !isBlocked;
         const chatId = String(chat._id);
-        const isDropdownActive = activeDropdown === chatId;
+        const isOpen = activeDropdown === chatId;
 
-        if (!chat.isGroup && isBlocked && !isDropdownActive) return null;
+        if (!chat.isGroup && isBlocked && !isOpen) return null;
 
-        const displayName = chat.isGroup
-          ? chat.groupName || "Unnamed Group"
-          : isBlocked
-          ? "Blocked User"
-          : otherUser?.savedName || otherUser?.name || otherUser?.phone || "Unknown User";
-
-        const profileImage = chat.isGroup
-          ? chat.groupAvatar || chat.groupPic || "/WhatsApp.jpg"
-          : isBlocked
-          ? "/WhatsApp.jpg"
-          : otherUser?.profilePic || "/WhatsApp.jpg";
-
-        const unreadCount = Math.max(0, chat.unreadCount || 0);
+        const name = chat.isGroup ? chat.groupName || "Group" : isBlocked ? "Blocked" : otherUser?.name || "User";
+        const pic = chat.isGroup ? chat.groupAvatar || "/WhatsApp.jpg" : isBlocked ? "/WhatsApp.jpg" : otherUser?.profilePic || "/WhatsApp.jpg";
+        const unread = chat.unreadCount || 0;
 
         return (
           <div
             key={chat._id}
-            className={`flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-[#2a3942] transition-colors border-b border-[#2a3942]/30 ${
-              selectedChat?._id === chat._id ? "bg-[#2a3942]" : ""
-            }`}
+            className={`flex gap-3 px-4 py-3 hover:bg-[#2a3942] border-b border-[#2a3942]/30 cursor-pointer ${selectedChat?._id === chat._id ? "bg-[#2a3942]" : ""}`}
             onClick={() => handleChatSelect(chat)}
           >
-            <div className="relative flex-shrink-0">
-              <img
-                src={profileImage}
-                alt=""
-                className="w-12 h-12 rounded-full object-cover"
-                onError={(e) => (e.target.src = "/WhatsApp.jpg")}
-              />
-              {!chat.isGroup && isOnline && (
-                <div className="absolute bottom-0 right-0 w-3 h-3 bg-[#00a884] rounded-full border-2 border-[#111b21]" />
-              )}
-              {chat.isGroup && (
-                <div className="absolute bottom-0 right-0 w-4 h-4 bg-[#00a884] rounded-full border-2 border-[#111b21] flex items-center justify-center">
-                  <Users className="w-2 h-2 text-white" />
-                </div>
-              )}
+            <div className="relative">
+              <img src={pic} alt="" className="w-12 h-12 rounded-full" onError={e => e.target.src = "/WhatsApp.jpg"} />
+              {chat.isGroup && <Users className="absolute bottom-0 right-0 w-5 h-5 bg-[#00a884] text-white rounded-full p-1 border-2 border-[#111b21]" />}
             </div>
 
             <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 mb-1">
-                <h3 className="font-medium text-[#e9edef] truncate text-[15px]">{displayName}</h3>
-                {chat.isPinned && <Pin className="w-3 h-3 text-[#8696a0]" />}
-                {chat.isFavorite && <Star className="w-3 h-3 text-[#ffb700] fill-current" />}
-                {chat.muted && <VolumeX className="w-3 h-3 text-[#8696a0]" />}
+              <div className="flex items-center gap-2">
+                <h3 className="text-[#e9edef] font-medium truncate">{name}</h3>
+                {chat.isPinned && <Pin className="w-4 h-4 text-[#8696a0]" />}
+                {chat.isFavorite && <Star className="w-4 h-4 text-[#ffb700] fill-current" />}
+                {chat.muted && <VolumeX className="w-4 h-4 text-[#8696a0]" />}
               </div>
-              <div className="flex items-center gap-1">
+              <div className="flex items-center gap-1 text-sm text-[#8696a0]">
                 {getMessageStatus(chat)}
-                <p className="text-[#8696a0] text-sm truncate">
-                  {chat.isGroup && chat.lastMessage?.sender?._id !== user._id && chat.lastMessage?.sender?.name
-                    ? `${chat.lastMessage.sender.name.split(" ")[0]}: `
-                    : chat.isGroup && chat.lastMessage?.sender?._id === user._id
-                    ? "You: "
-                    : ""}
+                <span className="truncate">
+                  {chat.isGroup && chat.lastMessage?.sender?._id !== user._id ? `${chat.lastMessage.sender.name.split(" ")[0]}: ` : ""}
                   {getMessagePreview(chat)}
-                </p>
+                </span>
               </div>
             </div>
 
-            <div className="flex flex-col items-end gap-1 text-right">
-              <span className="text-xs text-[#8696a0]">
-                {formatTimestamp(chat.lastMessageTime || chat.lastMessage?.timestamp)}
-              </span>
-
-              <div className="flex items-center gap-1">
-                {unreadCount > 0 && (
-                  <span className="bg-[#00a884] text-white text-xs rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1 font-medium">
-                    {unreadCount > 99 ? "99+" : unreadCount}
+            <div className="text-right">
+              <div className="text-xs text-[#8696a0]">{formatTimestamp(chat.lastMessageTime || chat.lastMessage?.timestamp)}</div>
+              <div className="flex items-center gap-2 mt-1">
+                {unread > 0 && (
+                  <span className="bg-[#00a884] text-white text-xs rounded-full min-w-[20px] h-5 flex items-center justify-center">
+                    {unread > 99 ? "99+" : unread}
                   </span>
                 )}
 
                 <div className="relative">
                   <button
-                    className="p-1 text-[#8696a0] hover:text-[#e9edef] hover:bg-[#2a3942] rounded-full"
-                    ref={isDropdownActive ? dropdownRef : null}
                     onClick={(e) => handleDropdownToggle(e, chatId)}
+                    className="p-1 hover:bg-[#2a3942] rounded"
                   >
-                    <MoreVertical size={16} />
+                    <MoreVertical size={18} />
                   </button>
 
-                  {isDropdownActive && (
-                    <div className="absolute top-full right-0 mt-1 bg-[#233138] text-[#e9edef] rounded-md shadow-lg border border-[#2a3942] w-48 z-50 py-2">
+                  {isOpen && (
+                    <div ref={dropdownRef} className="absolute right-0 mt-1 w-48 bg-[#233138] rounded-md shadow-lg border border-[#2a3942] z-50 py-2">
                       {/* FAVORITE */}
                       <button
-                        className="w-full px-4 py-2 text-sm text-left hover:bg-[#2a3942] flex items-center gap-3"
+                        className="w-full px-4 py-2 text-left hover:bg-[#2a3942] flex items-center gap-3 text-sm"
                         onClick={async (e) => {
                           e.stopPropagation();
                           await dispatch(toggleFavorite(chat._id)).unwrap();
@@ -762,12 +705,12 @@ const ChatList = ({ activeTab }) => {
                         }}
                       >
                         <Star className={`w-4 h-4 ${chat.isFavorite ? "text-[#ffb700] fill-current" : "text-[#8696a0]"}`} />
-                        <span>{chat.isFavorite ? "Remove from favorites" : "Add to favorites"}</span>
+                        {chat.isFavorite ? "Remove from favorites" : "Add to favorites"}
                       </button>
 
                       {/* MUTE */}
                       <button
-                        className="w-full px-4 py-2 text-sm text-left hover:bg-[#2a3942] flex items-center gap-3"
+                        className="w-full px-4 py-2 text-left hover:bg-[#2a3942] flex items-center gap-3 text-sm"
                         onClick={async (e) => {
                           e.stopPropagation();
                           await dispatch(toggleMuteChat(chat._id)).unwrap();
@@ -776,41 +719,40 @@ const ChatList = ({ activeTab }) => {
                         }}
                       >
                         {chat.muted ? <Volume2 className="w-4 h-4 text-[#8696a0]" /> : <VolumeX className="w-4 h-4 text-[#8696a0]" />}
-                        <span>{chat.muted ? "Unmute" : "Mute notifications"}</span>
+                        {chat.muted ? "Unmute" : "Mute notifications"}
                       </button>
 
                       {/* ARCHIVE */}
                       <button
-                        className="w-full px-4 py-2 text-sm text-left hover:bg-[#2a3942] flex items-center gap-3"
+                        className="w-full px-4 py-2 text-left hover:bg-[#2a3942] flex items-center gap-3 text-sm"
                         onClick={async (e) => {
                           e.stopPropagation();
-                          const willBeArchived = !chat.isArchived;
+                          const newArchived = !chat.isArchived;
                           await dispatch(toggleArchiveChat(chat._id)).unwrap();
-                          dispatch(updateChatInList({ _id: chat._id, isArchived: willBeArchived }));
+                          dispatch(updateChatInList({ _id: chat._id, isArchived: newArchived }));
                           setActiveDropdown(null);
                         }}
                       >
                         <Archive className="w-4 h-4 text-[#8696a0]" />
-                        <span>{chat.isArchived ? "Unarchive chat" : "Archive chat"}</span>
+                        {chat.isArchived ? "Unarchive chat" : "Archive chat"}
                       </button>
 
                       <div className="border-t border-[#2a3942] my-1" />
 
-                      {(!chat.isGroup || chat.groupAdmin === user._id) && (
-                        <button
-                          className="w-full px-4 py-2 text-sm text-left hover:bg-[#2a3942] text-[#ea6962] flex items-center gap-3"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if (window.confirm("Are you sure you want to delete this chat?")) {
-                              dispatch(deleteChat(chat._id));
-                              setActiveDropdown(null);
-                            }
-                          }}
-                        >
-                          <Trash2 className="w-4 h-4" />
-                          <span>Delete chat</span>
-                        </button>
-                      )}
+                      {/* DELETE */}
+                      <button
+                        className="w-full px-4 py-2 text-left hover:bg-[#2a3942] text-[#ea6962] flex items-center gap-3 text-sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (window.confirm("Delete this chat?")) {
+                            dispatch(deleteChat(chat._id));
+                            setActiveDropdown(null);
+                          }
+                        }}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                        Delete chat
+                      </button>
                     </div>
                   )}
                 </div>
