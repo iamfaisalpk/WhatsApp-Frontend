@@ -210,10 +210,12 @@ const ChatList = ({ activeTab }) => {
                     <MoreVertical size={18} />
                   </button>
 
+                  {/* {isOpen && ( */}
                   {isOpen && (
                     <div
                       ref={dropdownRef}
                       className="absolute right-0 mt-1 w-48 bg-[#233138] rounded-md shadow-lg border border-[#2a3942] z-50 py-2"
+                      style={{ pointerEvents: "auto" }}
                     >
                       {/* FAVORITE */}
                       <button
