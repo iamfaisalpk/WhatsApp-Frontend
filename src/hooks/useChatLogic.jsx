@@ -181,7 +181,7 @@ const useChatLogic = () => {
       markChatAsSeen();
     });
     socket.emit("join chat", selectedChat._id);
-  }, [selectedChat?._id, markChatAsSeen]);
+  }, [selectedChat?._id, selectedChat?.participants, markChatAsSeen]);
 
   const handleTyping = () => {
     if (!selectedChat?._id) return;
