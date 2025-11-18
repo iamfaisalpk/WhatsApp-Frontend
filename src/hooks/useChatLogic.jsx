@@ -13,7 +13,6 @@ const useChatLogic = () => {
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState("");
   const [mediaFile, setMediaFile] = useState(null);
-  const [typingUserId, setTypingUserId] = useState(null);
   const [searchText, setSearchText] = useState("");
   const [replyToMessage, setReplyToMessage] = useState(null);
   const [selectedMessages, setSelectedMessages] = useState([]);
@@ -26,7 +25,6 @@ const useChatLogic = () => {
   const processedMessageIdsRef = useRef(new Set());
 
   const selectedChatId = useSelector((s) => s.chat.selectedChat?._id);
-  const selectedChatMembers = useSelector((s) => s.chat.selectedChat?.members);
 
   const addMessageSafely = useCallback((newMsg) => {
     setMessages((prev) => {
@@ -34,7 +32,7 @@ const useChatLogic = () => {
         const idx = prev.findIndex((msg) => msg._id === newMsg._id);
         if (idx !== -1) {
           const updated = [...prev];
-          updated[idx] = { ...updated[idx], ...newMsg }; 
+          updated[idx] = { ...updated[idx], ...newMsg };
           return updated;
         }
       }
@@ -275,7 +273,6 @@ const useChatLogic = () => {
 
       if (!processedMessageIdsRef.current.has(finalMsg._id)) {
         addMessageSafely(finalMsg);
-        socket.emit("new-message", finalMsg);
       }
     } catch (err) {
       console.error("Send error:", err);
@@ -602,7 +599,6 @@ const useChatLogic = () => {
     setVoiceNoteFile,
     voiceNoteDuration,
     setVoiceNoteDuration,
-    setTypingUserId,
     searchText,
     setSearchText,
     replyToMessage,

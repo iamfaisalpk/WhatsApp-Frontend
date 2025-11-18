@@ -1,8 +1,7 @@
-import React, { useEffect, useState, useRef, useCallback } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
 import {
-  messageReceived,
   messageSent,
   updateChatInList,
   setSelectedChat,
@@ -28,8 +27,6 @@ import {
   toggleFavorite,
   toggleMuteChat,
 } from "../../../../utils/chatThunks";
-import instance from "../../Services/axiosInstance";
-
 const ChatList = ({ activeTab }) => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
@@ -40,26 +37,6 @@ const ChatList = ({ activeTab }) => {
   const { user } = useSelector((state) => state.auth);
   const [activeDropdown, setActiveDropdown] = useState(null);
   const dropdownRef = useRef(null);
-
-  const handleMessageReceived = useCallback(
-    (newMessage) => {
-      console.log("Message received:", newMessage);
-
-      const chatId = newMessage.chatId || newMessage.conversationId;
-
-      const messageWithUserId = {
-        ...newMessage,
-        currentUserId: user._id,
-      };
-
-      dispatch(messageReceived(messageWithUserId));
-
-      if (selectedChat?._id !== chatId) {
-        dispatch(fetchChats());
-      }
-    },
-    [dispatch, user._id, selectedChat?._id]
-  );
 
   useEffect(() => {
     dispatch(fetchChats());
@@ -73,8 +50,6 @@ const ChatList = ({ activeTab }) => {
 
   useEffect(() => {
     if (!socket) return;
-
-    socket.on("message received", handleMessageReceived);
 
     socket.on("chat updated", (updatedChat) => {
       console.log("Chat updated:", updatedChat);
@@ -97,12 +72,11 @@ const ChatList = ({ activeTab }) => {
     });
 
     return () => {
-      socket.off("message received", handleMessageReceived);
       socket.off("chat updated");
       socket.off("message sent");
       socket.off("chat list updated");
     };
-  }, [handleMessageReceived, dispatch]);
+  }, [dispatch]);
 
   // Close dropdown when clicking outside - Fixed version
   useEffect(() => {
@@ -148,7 +122,8 @@ const ChatList = ({ activeTab }) => {
   const handleToggleFavorite = async (e, chatId) => {
     e.stopPropagation();
     try {
-      await dispatch(toggleFavorite(chatId)).unwrap(); 
+      await dispatch(toggleFavorite(chatId)).unwrap();
+      dispatch(fetchChats());
     } catch (error) {
       console.error("Error toggling favorite:", error);
     }
