@@ -532,6 +532,10 @@
 
 // export default ChatList;
 
+
+
+
+
 import React, { useEffect, useState, useRef } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
@@ -649,7 +653,6 @@ const ChatList = ({ activeTab }) => {
     setActiveDropdown(activeDropdown === chatId ? null : chatId);
   };
 
-  // Format timestamp
   const formatTimestamp = (timestamp) => {
     if (!timestamp) return "";
     const now = new Date();
@@ -658,20 +661,11 @@ const ChatList = ({ activeTab }) => {
 
     const diffDays = Math.floor((now - messageDate) / (1000 * 60 * 60 * 24));
 
-    if (diffDays === 0) {
-      return messageDate.toLocaleTimeString([], {
-        hour: "2-digit",
-        minute: "2-digit",
-      });
-    } else if (diffDays === 1) return "Yesterday";
-    else if (diffDays < 7)
-      return messageDate.toLocaleDateString([], { weekday: "long" });
-    else
-      return messageDate.toLocaleDateString([], {
-        day: "2-digit",
-        month: "2-digit",
-        year: "2-digit",
-      });
+    if (diffDays === 0)
+      return messageDate.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    if (diffDays === 1) return "Yesterday";
+    if (diffDays < 7) return messageDate.toLocaleDateString([], { weekday: "long" });
+    return messageDate.toLocaleDateString([], { day: "2-digit", month: "2-digit", year: "2-digit" });
   };
 
   const getMessagePreview = (chat) => {
@@ -692,14 +686,11 @@ const ChatList = ({ activeTab }) => {
   };
 
   const getMessageStatus = (chat) => {
-    if (!chat.lastMessage || !user || chat.lastMessage.sender?._id !== user._id)
-      return null;
+    if (!chat.lastMessage || !user || chat.lastMessage.sender?._id !== user._id) return null;
     const { status } = chat.lastMessage;
     if (status === "sent") return <Check className="w-4 h-4 text-gray-400" />;
-    if (status === "delivered")
-      return <CheckCheck className="w-4 h-4 text-gray-400" />;
-    if (status === "read")
-      return <CheckCheck className="w-4 h-4 text-[#53bdeb]" />;
+    if (status === "delivered") return <CheckCheck className="w-4 h-4 text-gray-400" />;
+    if (status === "read") return <CheckCheck className="w-4 h-4 text-[#53bdeb]" />;
     return null;
   };
 
@@ -714,12 +705,8 @@ const ChatList = ({ activeTab }) => {
     .sort((a, b) => {
       if (a.isPinned && !b.isPinned) return -1;
       if (!a.isPinned && b.isPinned) return 1;
-      const aTime = new Date(
-        a.lastMessageTime || a.lastMessage?.timestamp || 0
-      );
-      const bTime = new Date(
-        b.lastMessageTime || b.lastMessage?.timestamp || 0
-      );
+      const aTime = new Date(a.lastMessageTime || a.lastMessage?.timestamp || 0);
+      const bTime = new Date(b.lastMessageTime || b.lastMessage?.timestamp || 0);
       return bTime - aTime;
     });
 
@@ -740,12 +727,9 @@ const ChatList = ({ activeTab }) => {
           {activeTab === "Favorites" && "No favorite chats"}
           {activeTab === "Groups" && "No group chats"}
           {activeTab === "Archived" && "No archived chats"}
-          {!["Unread", "Favorites", "Groups", "Archived"].includes(activeTab) &&
-            "No chats yet"}
+          {!["Unread", "Favorites", "Groups", "Archived"].includes(activeTab) && "No chats yet"}
         </p>
-        <p className="text-gray-500 text-xs mt-1">
-          Start a new conversation to see chats here
-        </p>
+        <p className="text-gray-500 text-xs mt-1">Start a new conversation to see chats here</p>
       </div>
     );
   }
@@ -753,16 +737,11 @@ const ChatList = ({ activeTab }) => {
   return (
     <div className="overflow-y-auto h-full scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-transparent">
       {filteredChats.map((chat) => {
-        const otherUser =
-          chat.isGroup || !Array.isArray(chat.members)
-            ? null
-            : chat.members.find(
-                (m) => m && m._id && String(m._id) !== String(user._id)
-              );
+        const otherUser = chat.isGroup || !Array.isArray(chat.members)
+          ? null
+          : chat.members.find((m) => m && m._id && String(m._id) !== String(user._id));
 
-        const isBlocked = Boolean(
-          otherUser?.isBlocked || otherUser?.isBlockedByMe
-        );
+        const isBlocked = Boolean(otherUser?.isBlocked || otherUser?.isBlockedByMe);
         const isOnline = otherUser?.isOnline && !isBlocked;
         const chatId = String(chat._id);
         const isDropdownActive = activeDropdown === chatId;
@@ -773,10 +752,7 @@ const ChatList = ({ activeTab }) => {
           ? chat.groupName || chat.name || "Unnamed Group"
           : isBlocked
           ? "Blocked User"
-          : otherUser?.savedName ||
-            otherUser?.name ||
-            otherUser?.phone ||
-            "Unknown User";
+          : otherUser?.savedName || otherUser?.name || otherUser?.phone || "Unknown User";
 
         const profileImage = chat.isGroup
           ? chat.groupAvatar?.trim() || chat.groupPic?.trim() || "/WhatsApp.jpg"
@@ -813,26 +789,16 @@ const ChatList = ({ activeTab }) => {
 
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 mb-1">
-                <h3 className="font-medium text-[#e9edef] truncate text-[15px]">
-                  {displayName}
-                </h3>
-                {chat.isPinned && (
-                  <Pin className="w-3 h-3 text-[#8696a0] flex-shrink-0" />
-                )}
-                {chat.isFavorite && (
-                  <Star className="w-3 h-3 text-[#ffb700] fill-current flex-shrink-0" />
-                )}
-                {chat.muted && (
-                  <VolumeX className="w-3 h-3 text-[#8696a0] flex-shrink-0" />
-                )}
+                <h3 className="font-medium text-[#e9edef] truncate text-[15px]">{displayName}</h3>
+                {chat.isPinned && <Pin className="w-3 h-3 text-[#8696a0] flex-shrink-0" />}
+                {chat.isFavorite && <Star className="w-3 h-3 text-[#ffb700] fill-current flex-shrink-0" />}
+                {chat.muted && <VolumeX className="w-3 h-3 text-[#8696a0] flex-shrink-0" />}
               </div>
 
               <div className="flex items-center gap-1">
                 {getMessageStatus(chat)}
                 <p className="text-[#8696a0] text-sm truncate flex-1">
-                  {chat.isGroup &&
-                  chat.lastMessage?.sender?._id !== user._id &&
-                  chat.lastMessage?.sender?.name
+                  {chat.isGroup && chat.lastMessage?.sender?._id !== user._id && chat.lastMessage?.sender?.name
                     ? `${chat.lastMessage.sender.name.split(" ")[0]}: `
                     : chat.isGroup && chat.lastMessage?.sender?._id === user._id
                     ? "You: "
@@ -844,9 +810,7 @@ const ChatList = ({ activeTab }) => {
 
             <div className="flex flex-col items-end gap-1 text-right ml-2">
               <span className="text-xs text-[#8696a0] whitespace-nowrap">
-                {formatTimestamp(
-                  chat.lastMessageTime || chat.lastMessage?.timestamp
-                )}
+                {formatTimestamp(chat.lastMessageTime || chat.lastMessage?.timestamp)}
               </span>
 
               <div className="flex items-center gap-1">
@@ -866,44 +830,33 @@ const ChatList = ({ activeTab }) => {
                     </button>
 
                     {isDropdownActive && (
-                      <div className="absolute top-full right-0 mt-1 bg-[#233138] text-[#e9edef] rounded-md shadow-lg border border-[#2a3942] w-48 z-50 py-2 animate-in fade-in-0 zoom-in-95 duration-100">
-                        {/* FIXED: Favorite Button */}
+                      <div className="absolute top-full right-0 mt-1 bg-[#233138] text-[#e9edef] rounded-md shadow-lg border border-[#2a3942] w-48 z-50 py-2">
+                        {/* FAVORITE - WORKS INSTANTLY */}
                         <button
                           className="w-full px-4 py-2 text-sm text-left hover:bg-[#2a3942] flex items-center gap-3 transition-colors"
                           onClick={async (e) => {
                             e.stopPropagation();
                             try {
                               await dispatch(toggleFavorite(chat._id)).unwrap();
-                            } catch (err) {
-                              console.error("Failed to toggle favorite");
                             } finally {
                               setActiveDropdown(null);
                             }
                           }}
                         >
                           <Star
-                            className={`w-4 h-4 ${
-                              chat.isFavorite
-                                ? "text-[#ffb700] fill-current"
-                                : "text-[#8696a0]"
-                            }`}
+                            className={`w-4 h-4 ${chat.isFavorite ? "text-[#ffb700] fill-current" : "text-[#8696a0]"}`}
                           />
-                          <span>
-                            {chat.isFavorite
-                              ? "Remove from favorites"
-                              : "Add to favorites"}
-                          </span>
+                          <span>{chat.isFavorite ? "Remove from favorites" : "Add to favorites"}</span>
                         </button>
 
-                        {/* Mute/Unmute */}
+                        {/* MUTE - WORKS INSTANTLY */}
                         <button
                           className="w-full px-4 py-2 text-sm text-left hover:bg-[#2a3942] flex items-center gap-3 transition-colors"
                           onClick={async (e) => {
                             e.stopPropagation();
                             try {
                               await dispatch(toggleMuteChat(chat._id)).unwrap();
-                            } catch (err) {
-                              console.error("Failed to toggle mute");
+                              dispatch(updateChatInList({ _id: chat._id, muted: !chat.muted }));
                             } finally {
                               setActiveDropdown(null);
                             }
@@ -914,33 +867,24 @@ const ChatList = ({ activeTab }) => {
                           ) : (
                             <VolumeX className="w-4 h-4 text-[#8696a0]" />
                           )}
-                          <span>
-                            {chat.muted ? "Unmute" : "Mute notifications"}
-                          </span>
+                          <span>{chat.muted ? "Unmute" : "Mute notifications"}</span>
                         </button>
 
-                        {/* Archive/Unarchive */}
+                        {/* ARCHIVE - WORKS INSTANTLY + MOVES CHAT */}
                         <button
                           className="w-full px-4 py-2 text-sm text-left hover:bg-[#2a3942] flex items-center gap-3 transition-colors"
                           onClick={async (e) => {
                             e.stopPropagation();
                             try {
-                              await dispatch(
-                                toggleArchiveChat(chat._id)
-                              ).unwrap();
-                            } catch (err) {
-                              console.error("Failed to archive");
+                              await dispatch(toggleArchiveChat(chat._id)).unwrap();
+                              dispatch(updateChatInList({ _id: chat._id, isArchived: !chat.isArchived }));
                             } finally {
                               setActiveDropdown(null);
                             }
                           }}
                         >
                           <Archive className="w-4 h-4 text-[#8696a0]" />
-                          <span>
-                            {chat.isArchived
-                              ? "Unarchive chat"
-                              : "Archive chat"}
-                          </span>
+                          <span>{chat.isArchived ? "Unarchive chat" : "Archive chat"}</span>
                         </button>
 
                         <div className="border-t border-[#2a3942] my-1"></div>
@@ -950,11 +894,7 @@ const ChatList = ({ activeTab }) => {
                             className="w-full px-4 py-2 text-sm text-left hover:bg-[#2a3942] text-[#ea6962] flex items-center gap-3 transition-colors"
                             onClick={(e) => {
                               e.stopPropagation();
-                              if (
-                                window.confirm(
-                                  "Are you sure you want to delete this chat?"
-                                )
-                              ) {
+                              if (window.confirm("Are you sure you want to delete this chat?")) {
                                 dispatch(deleteChat(chat._id));
                                 setActiveDropdown(null);
                               }
