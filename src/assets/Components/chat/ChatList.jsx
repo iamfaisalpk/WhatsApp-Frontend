@@ -539,11 +539,7 @@
 import React, { useEffect, useState, useRef } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
-import {
-  messageSent,
-  updateChatInList,
-  setSelectedChat,
-} from "../../store/slices/chatSlice";
+import { updateChatInList, setSelectedChat } from "../../store/slices/chatSlice";
 import {
   Star,
   MoreVertical,
@@ -556,10 +552,8 @@ import {
   Pin,
   Users,
 } from "lucide-react";
-import socket from "../../../../utils/socket";
 import {
   deleteChat,
-  fetchChats,
   markAsRead,
   toggleArchiveChat,
   toggleFavorite,
@@ -570,134 +564,76 @@ const ChatList = ({ activeTab }) => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
 
-  const { chats, archivedChats, selectedChat, loading } = useSelector(
-    (state) => state.chat
-  );
+  const { chats, archivedChats, selectedChat } = useSelector((state) => state.chat);
   const { user } = useSelector((state) => state.auth);
   const [activeDropdown, setActiveDropdown] = useState(null);
   const dropdownRef = useRef(null);
 
-  useEffect(() => {
-    dispatch(fetchChats());
-
-    const savedChat = JSON.parse(localStorage.getItem("selectedChat"));
-    if (savedChat) {
-      dispatch(setSelectedChat(savedChat));
-    }
-  }, [dispatch]);
-
-  useEffect(() => {
-    if (!socket) return;
-
-    socket.on("chat updated", (updatedChat) => {
-      dispatch(updateChatInList(updatedChat));
-    });
-
-    socket.on("message sent", (data) => {
-      dispatch(
-        messageSent({
-          chatId: data.conversationId || data.chatId,
-          message: data.message,
-        })
-      );
-    });
-
-    socket.on("chat list updated", () => {
-      dispatch(fetchChats());
-    });
-
-    return () => {
-      socket.off("chat updated");
-      socket.off("message sent");
-      socket.off("chat list updated");
-    };
-  }, [dispatch]);
-
-  // Close dropdown when clicking outside
+  // Close dropdown on outside click
   useEffect(() => {
     const handleClickOutside = (event) => {
-      if (
-        activeDropdown &&
-        dropdownRef.current &&
-        !dropdownRef.current.contains(event.target)
-      ) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
         setActiveDropdown(null);
       }
     };
-
-    const timeoutId = setTimeout(() => {
-      document.addEventListener("mousedown", handleClickOutside);
-    }, 100);
-
-    return () => {
-      clearTimeout(timeoutId);
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
-  }, [activeDropdown]);
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   const handleChatSelect = async (chat) => {
-    try {
-      dispatch(setSelectedChat(chat));
-      if (chat.unreadCount > 0 || !chat.isRead) {
-        await dispatch(markAsRead(chat._id));
-      }
-      navigate(`/app/chats/${chat._id}`);
-    } catch (error) {
-      console.error("Error selecting chat:", error);
+    dispatch(setSelectedChat(chat));
+    if (chat.unreadCount > 0 || !chat.isRead) {
+      await dispatch(markAsRead(chat._id));
     }
+    navigate(`/app/chats/${chat._id}`);
   };
 
   const handleDropdownToggle = (e, chatId) => {
     e.stopPropagation();
-    e.preventDefault();
     setActiveDropdown(activeDropdown === chatId ? null : chatId);
   };
 
   const formatTimestamp = (timestamp) => {
     if (!timestamp) return "";
+    const date = new Date(timestamp);
     const now = new Date();
-    const messageDate = new Date(timestamp);
-    if (isNaN(messageDate.getTime())) return "";
+    const diffDays = Math.floor((now - date) / (1000 * 60 * 60 * 24));
 
-    const diffDays = Math.floor((now - messageDate) / (1000 * 60 * 60 * 24));
-
-    if (diffDays === 0)
-      return messageDate.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    if (diffDays === 0) return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
     if (diffDays === 1) return "Yesterday";
-    if (diffDays < 7) return messageDate.toLocaleDateString([], { weekday: "long" });
-    return messageDate.toLocaleDateString([], { day: "2-digit", month: "2-digit", year: "2-digit" });
+    if (diffDays < 7) return date.toLocaleDateString([], { weekday: "long" });
+    return date.toLocaleDateString([], { day: "2-digit", month: "2-digit", year: "2-digit" });
   };
 
   const getMessagePreview = (chat) => {
     if (!chat.lastMessage) return "No messages yet";
-    const { lastMessage } = chat;
-
-    if (lastMessage.media) {
-      if (lastMessage.media.type?.startsWith("image/")) return "Photo";
-      if (lastMessage.media.type?.startsWith("video/")) return "Video";
-      if (lastMessage.media.type?.startsWith("audio/")) return "Audio";
+    const msg = chat.lastMessage;
+    if (msg.media) {
+      if (msg.media.type?.startsWith("image/")) return "Photo";
+      if (msg.media.type?.startsWith("video/")) return "Video";
+      if (msg.media.type?.startsWith("audio/")) return "Audio";
       return "Document";
     }
-    if (lastMessage.voiceNote) return "Voice message";
-    if (lastMessage.location) return "Location";
-    if (lastMessage.contact) return "Contact";
-
-    return lastMessage.text || "Message";
+    if (msg.voiceNote) return "Voice message";
+    if (msg.location) return "Location";
+    if (msg.contact) return "Contact";
+    return msg.text || "Message";
   };
 
   const getMessageStatus = (chat) => {
     if (!chat.lastMessage || !user || chat.lastMessage.sender?._id !== user._id) return null;
-    const { status } = chat.lastMessage;
+    const status = chat.lastMessage.status;
     if (status === "sent") return <Check className="w-4 h-4 text-gray-400" />;
     if (status === "delivered") return <CheckCheck className="w-4 h-4 text-gray-400" />;
     if (status === "read") return <CheckCheck className="w-4 h-4 text-[#53bdeb]" />;
     return null;
   };
 
+  // Filter and sort chats based on active tab
   const filteredChats = (activeTab === "Archived" ? archivedChats : chats)
     .filter((chat) => {
-      if (!chat || !chat._id) return false;
-      if (activeTab === "Unread") return !chat.isRead && chat.unreadCount > 0;
+      if (!chat?._id) return false;
+      if (activeTab === "Unread") return chat.unreadCount > 0 && !chat.isRead;
       if (activeTab === "Favorites") return chat.isFavorite;
       if (activeTab === "Groups") return chat.isGroup;
       return true;
@@ -705,43 +641,29 @@ const ChatList = ({ activeTab }) => {
     .sort((a, b) => {
       if (a.isPinned && !b.isPinned) return -1;
       if (!a.isPinned && b.isPinned) return 1;
-      const aTime = new Date(a.lastMessageTime || a.lastMessage?.timestamp || 0);
-      const bTime = new Date(b.lastMessageTime || b.lastMessage?.timestamp || 0);
-      return bTime - aTime;
+      return new Date(b.lastMessageTime || b.lastMessage?.timestamp || 0) -
+             new Date(a.lastMessageTime || a.lastMessage?.timestamp || 0);
     });
-
-  if (loading) {
-    return (
-      <div className="p-4 text-center">
-        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-[#00a884] mx-auto"></div>
-        <p className="text-sm text-gray-400 mt-2">Loading chats...</p>
-      </div>
-    );
-  }
 
   if (filteredChats.length === 0) {
     return (
-      <div className="p-8 text-center">
-        <p className="text-gray-400 text-sm">
-          {activeTab === "Unread" && "No unread chats"}
-          {activeTab === "Favorites" && "No favorite chats"}
-          {activeTab === "Groups" && "No group chats"}
-          {activeTab === "Archived" && "No archived chats"}
-          {!["Unread", "Favorites", "Groups", "Archived"].includes(activeTab) && "No chats yet"}
-        </p>
-        <p className="text-gray-500 text-xs mt-1">Start a new conversation to see chats here</p>
+      <div className="p-8 text-center text-gray-400 text-sm">
+        {activeTab === "Archived" ? "No archived chats" :
+         activeTab === "Favorites" ? "No favorite chats" :
+         activeTab === "Groups" ? "No group chats" :
+         activeTab === "Unread" ? "No unread chats" : "No chats yet"}
       </div>
     );
   }
 
   return (
-    <div className="overflow-y-auto h-full scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-transparent">
+    <div className="overflow-y-auto h-full">
       {filteredChats.map((chat) => {
-        const otherUser = chat.isGroup || !Array.isArray(chat.members)
-          ? null
-          : chat.members.find((m) => m && m._id && String(m._id) !== String(user._id));
+        const otherUser = !chat.isGroup && Array.isArray(chat.members)
+          ? chat.members.find((m) => m?._id && String(m._id) !== String(user._id))
+          : null;
 
-        const isBlocked = Boolean(otherUser?.isBlocked || otherUser?.isBlockedByMe);
+        const isBlocked = otherUser?.isBlocked || otherUser?.isBlockedByMe;
         const isOnline = otherUser?.isOnline && !isBlocked;
         const chatId = String(chat._id);
         const isDropdownActive = activeDropdown === chatId;
@@ -749,23 +671,23 @@ const ChatList = ({ activeTab }) => {
         if (!chat.isGroup && isBlocked && !isDropdownActive) return null;
 
         const displayName = chat.isGroup
-          ? chat.groupName || chat.name || "Unnamed Group"
+          ? chat.groupName || "Unnamed Group"
           : isBlocked
           ? "Blocked User"
           : otherUser?.savedName || otherUser?.name || otherUser?.phone || "Unknown User";
 
         const profileImage = chat.isGroup
-          ? chat.groupAvatar?.trim() || chat.groupPic?.trim() || "/WhatsApp.jpg"
+          ? chat.groupAvatar || chat.groupPic || "/WhatsApp.jpg"
           : isBlocked
           ? "/WhatsApp.jpg"
-          : otherUser?.profilePic?.trim() || "/WhatsApp.jpg";
+          : otherUser?.profilePic || "/WhatsApp.jpg";
 
         const unreadCount = Math.max(0, chat.unreadCount || 0);
 
         return (
           <div
             key={chat._id}
-            className={`relative flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-[#2a3942] transition-colors duration-150 border-b border-[#2a3942]/30 group ${
+            className={`flex items-center gap-3 px-4 py-3 cursor-pointer hover:bg-[#2a3942] transition-colors border-b border-[#2a3942]/30 ${
               selectedChat?._id === chat._id ? "bg-[#2a3942]" : ""
             }`}
             onClick={() => handleChatSelect(chat)}
@@ -773,12 +695,12 @@ const ChatList = ({ activeTab }) => {
             <div className="relative flex-shrink-0">
               <img
                 src={profileImage}
-                alt="Profile"
+                alt=""
                 className="w-12 h-12 rounded-full object-cover"
                 onError={(e) => (e.target.src = "/WhatsApp.jpg")}
               />
               {!chat.isGroup && isOnline && (
-                <div className="absolute bottom-0 right-0 w-3 h-3 bg-[#00a884] rounded-full border-2 border-[#111b21]"></div>
+                <div className="absolute bottom-0 right-0 w-3 h-3 bg-[#00a884] rounded-full border-2 border-[#111b21]" />
               )}
               {chat.isGroup && (
                 <div className="absolute bottom-0 right-0 w-4 h-4 bg-[#00a884] rounded-full border-2 border-[#111b21] flex items-center justify-center">
@@ -790,14 +712,13 @@ const ChatList = ({ activeTab }) => {
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 mb-1">
                 <h3 className="font-medium text-[#e9edef] truncate text-[15px]">{displayName}</h3>
-                {chat.isPinned && <Pin className="w-3 h-3 text-[#8696a0] flex-shrink-0" />}
-                {chat.isFavorite && <Star className="w-3 h-3 text-[#ffb700] fill-current flex-shrink-0" />}
-                {chat.muted && <VolumeX className="w-3 h-3 text-[#8696a0] flex-shrink-0" />}
+                {chat.isPinned && <Pin className="w-3 h-3 text-[#8696a0]" />}
+                {chat.isFavorite && <Star className="w-3 h-3 text-[#ffb700] fill-current" />}
+                {chat.muted && <VolumeX className="w-3 h-3 text-[#8696a0]" />}
               </div>
-
               <div className="flex items-center gap-1">
                 {getMessageStatus(chat)}
-                <p className="text-[#8696a0] text-sm truncate flex-1">
+                <p className="text-[#8696a0] text-sm truncate">
                   {chat.isGroup && chat.lastMessage?.sender?._id !== user._id && chat.lastMessage?.sender?.name
                     ? `${chat.lastMessage.sender.name.split(" ")[0]}: `
                     : chat.isGroup && chat.lastMessage?.sender?._id === user._id
@@ -808,8 +729,8 @@ const ChatList = ({ activeTab }) => {
               </div>
             </div>
 
-            <div className="flex flex-col items-end gap-1 text-right ml-2">
-              <span className="text-xs text-[#8696a0] whitespace-nowrap">
+            <div className="flex flex-col items-end gap-1 text-right">
+              <span className="text-xs text-[#8696a0]">
                 {formatTimestamp(chat.lastMessageTime || chat.lastMessage?.timestamp)}
               </span>
 
@@ -821,92 +742,77 @@ const ChatList = ({ activeTab }) => {
                 )}
 
                 <div className="relative">
-                  <div ref={isDropdownActive ? dropdownRef : null}>
-                    <button
-                      className="p-1 text-[#8696a0] hover:text-[#e9edef] hover:bg-[#2a3942] rounded-full transition-colors"
-                      onClick={(e) => handleDropdownToggle(e, chatId)}
-                    >
-                      <MoreVertical size={16} />
-                    </button>
+                  <button
+                    className="p-1 text-[#8696a0] hover:text-[#e9edef] hover:bg-[#2a3942] rounded-full"
+                    ref={isDropdownActive ? dropdownRef : null}
+                    onClick={(e) => handleDropdownToggle(e, chatId)}
+                  >
+                    <MoreVertical size={16} />
+                  </button>
 
-                    {isDropdownActive && (
-                      <div className="absolute top-full right-0 mt-1 bg-[#233138] text-[#e9edef] rounded-md shadow-lg border border-[#2a3942] w-48 z-50 py-2">
-                        {/* FAVORITE - WORKS INSTANTLY */}
+                  {isDropdownActive && (
+                    <div className="absolute top-full right-0 mt-1 bg-[#233138] text-[#e9edef] rounded-md shadow-lg border border-[#2a3942] w-48 z-50 py-2">
+                      {/* FAVORITE */}
+                      <button
+                        className="w-full px-4 py-2 text-sm text-left hover:bg-[#2a3942] flex items-center gap-3"
+                        onClick={async (e) => {
+                          e.stopPropagation();
+                          await dispatch(toggleFavorite(chat._id)).unwrap();
+                          setActiveDropdown(null);
+                        }}
+                      >
+                        <Star className={`w-4 h-4 ${chat.isFavorite ? "text-[#ffb700] fill-current" : "text-[#8696a0]"}`} />
+                        <span>{chat.isFavorite ? "Remove from favorites" : "Add to favorites"}</span>
+                      </button>
+
+                      {/* MUTE */}
+                      <button
+                        className="w-full px-4 py-2 text-sm text-left hover:bg-[#2a3942] flex items-center gap-3"
+                        onClick={async (e) => {
+                          e.stopPropagation();
+                          await dispatch(toggleMuteChat(chat._id)).unwrap();
+                          dispatch(updateChatInList({ _id: chat._id, muted: !chat.muted }));
+                          setActiveDropdown(null);
+                        }}
+                      >
+                        {chat.muted ? <Volume2 className="w-4 h-4 text-[#8696a0]" /> : <VolumeX className="w-4 h-4 text-[#8696a0]" />}
+                        <span>{chat.muted ? "Unmute" : "Mute notifications"}</span>
+                      </button>
+
+                      {/* ARCHIVE */}
+                      <button
+                        className="w-full px-4 py-2 text-sm text-left hover:bg-[#2a3942] flex items-center gap-3"
+                        onClick={async (e) => {
+                          e.stopPropagation();
+                          const willBeArchived = !chat.isArchived;
+                          await dispatch(toggleArchiveChat(chat._id)).unwrap();
+                          dispatch(updateChatInList({ _id: chat._id, isArchived: willBeArchived }));
+                          setActiveDropdown(null);
+                        }}
+                      >
+                        <Archive className="w-4 h-4 text-[#8696a0]" />
+                        <span>{chat.isArchived ? "Unarchive chat" : "Archive chat"}</span>
+                      </button>
+
+                      <div className="border-t border-[#2a3942] my-1" />
+
+                      {(!chat.isGroup || chat.groupAdmin === user._id) && (
                         <button
-                          className="w-full px-4 py-2 text-sm text-left hover:bg-[#2a3942] flex items-center gap-3 transition-colors"
-                          onClick={async (e) => {
+                          className="w-full px-4 py-2 text-sm text-left hover:bg-[#2a3942] text-[#ea6962] flex items-center gap-3"
+                          onClick={(e) => {
                             e.stopPropagation();
-                            try {
-                              await dispatch(toggleFavorite(chat._id)).unwrap();
-                            } finally {
+                            if (window.confirm("Are you sure you want to delete this chat?")) {
+                              dispatch(deleteChat(chat._id));
                               setActiveDropdown(null);
                             }
                           }}
                         >
-                          <Star
-                            className={`w-4 h-4 ${chat.isFavorite ? "text-[#ffb700] fill-current" : "text-[#8696a0]"}`}
-                          />
-                          <span>{chat.isFavorite ? "Remove from favorites" : "Add to favorites"}</span>
+                          <Trash2 className="w-4 h-4" />
+                          <span>Delete chat</span>
                         </button>
-
-                        {/* MUTE - WORKS INSTANTLY */}
-                        <button
-                          className="w-full px-4 py-2 text-sm text-left hover:bg-[#2a3942] flex items-center gap-3 transition-colors"
-                          onClick={async (e) => {
-                            e.stopPropagation();
-                            try {
-                              await dispatch(toggleMuteChat(chat._id)).unwrap();
-                              dispatch(updateChatInList({ _id: chat._id, muted: !chat.muted }));
-                            } finally {
-                              setActiveDropdown(null);
-                            }
-                          }}
-                        >
-                          {chat.muted ? (
-                            <Volume2 className="w-4 h-4 text-[#8696a0]" />
-                          ) : (
-                            <VolumeX className="w-4 h-4 text-[#8696a0]" />
-                          )}
-                          <span>{chat.muted ? "Unmute" : "Mute notifications"}</span>
-                        </button>
-
-                        {/* ARCHIVE - WORKS INSTANTLY + MOVES CHAT */}
-                        <button
-                          className="w-full px-4 py-2 text-sm text-left hover:bg-[#2a3942] flex items-center gap-3 transition-colors"
-                          onClick={async (e) => {
-                            e.stopPropagation();
-                            try {
-                              await dispatch(toggleArchiveChat(chat._id)).unwrap();
-                              dispatch(updateChatInList({ _id: chat._id, isArchived: !chat.isArchived }));
-                            } finally {
-                              setActiveDropdown(null);
-                            }
-                          }}
-                        >
-                          <Archive className="w-4 h-4 text-[#8696a0]" />
-                          <span>{chat.isArchived ? "Unarchive chat" : "Archive chat"}</span>
-                        </button>
-
-                        <div className="border-t border-[#2a3942] my-1"></div>
-
-                        {(!chat.isGroup || chat.groupAdmin === user._id) && (
-                          <button
-                            className="w-full px-4 py-2 text-sm text-left hover:bg-[#2a3942] text-[#ea6962] flex items-center gap-3 transition-colors"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              if (window.confirm("Are you sure you want to delete this chat?")) {
-                                dispatch(deleteChat(chat._id));
-                                setActiveDropdown(null);
-                              }
-                            }}
-                          >
-                            <Trash2 className="w-4 h-4" />
-                            <span>Delete chat</span>
-                          </button>
-                        )}
-                      </div>
-                    )}
-                  </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
