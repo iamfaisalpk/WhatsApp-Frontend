@@ -500,7 +500,7 @@ const ChatList = ({ activeTab }) => {
                             setActiveDropdown(null);
                           }
                         }}
-                        className="w-full px-4 py-2.5 text-left hover:bg-[#2a3942] text-[#ea6962] flex items-center gap-3 text-sm"
+                        className="w-full cursor-pointer px-4 py-2.5 text-left hover:bg-[#2a3942] text-[#ea6962] flex items-center gap-3 text-sm"
                       >
                         <Trash2 className="w-4 h-4" />
                         Delete chat
