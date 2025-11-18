@@ -1,67 +1,80 @@
-import React, { useCallback, useMemo } from 'react';
-import { useSelector, useDispatch } from 'react-redux';
-import { Link } from 'react-router-dom';
-import { FaWhatsapp, FaArrowRight, FaLock } from 'react-icons/fa';
-import PhoneInput from 'react-phone-input-2';
-import 'react-phone-input-2/lib/style.css';
-import { setPhoneNumber, setCountryCode, sendOTP, setCurrentStep } from '../../store/slices/authSlice';
+import React, { useCallback, useMemo } from "react";
+import { useSelector, useDispatch } from "react-redux";
+import { Link } from "react-router-dom";
+import { FaWhatsapp, FaArrowRight, FaLock } from "react-icons/fa";
+import PhoneInput from "react-phone-input-2";
+import "react-phone-input-2/lib/style.css";
+import {
+    setPhoneNumber,
+    setCountryCode,
+    sendOTP,
+    setCurrentStep,
+} from "../../store/slices/authSlice";
 
 const PhoneInputComponent = ({ setStep }) => {
     const dispatch = useDispatch();
-    const { phoneNumber, countryCode, loading, error } = useSelector((state) => state.auth);
+    const { phoneNumber, loading, error } = useSelector((state) => state.auth);
 
     // Debounced phone number validation
     const isValidPhone = useMemo(() => {
         if (!phoneNumber) return false;
-        const rawPhone = phoneNumber.replace(/\D/g, '');
+        const rawPhone = phoneNumber.replace(/\D/g, "");
         return rawPhone.length >= 12 && rawPhone.length <= 15;
     }, [phoneNumber]);
 
     // Optimized phone change handler with minimal logging
-    const handlePhoneChange = useCallback((value, country) => {
-        // Only log significant changes (not every keystroke)
-        if (value.length % 3 === 0 || value.length < 3) {
-            console.log(" Phone updated:", value.slice(-4).padStart(4, '*'));
-        }
-        dispatch(setPhoneNumber(value));
-        dispatch(setCountryCode(country.countryCode));
-    }, [dispatch]);
+    const handlePhoneChange = useCallback(
+        (value, country) => {
+            // Only log significant changes (not every keystroke)
+            if (value.length % 3 === 0 || value.length < 3) {
+                console.log(" Phone updated:", value.slice(-4).padStart(4, "*"));
+            }
+            dispatch(setPhoneNumber(value));
+            dispatch(setCountryCode(country.countryCode));
+        },
+        [dispatch]
+    );
 
-    const handlePhoneSubmit = useCallback((e) => {
-        e.preventDefault();
+    const handlePhoneSubmit = useCallback(
+        (e) => {
+            e.preventDefault();
 
-        if (!phoneNumber || phoneNumber.trim() === '') {
-            dispatch({
-                type: 'auth/sendOTP/rejected',
-                payload: { message: 'Please enter a phone number' },
-            });
-            return;
-        }
+            if (!phoneNumber || phoneNumber.trim() === "") {
+                dispatch({
+                    type: "auth/sendOTP/rejected",
+                    payload: { message: "Please enter a phone number" },
+                });
+                return;
+            }
 
-        const rawPhone = phoneNumber.replace(/\D/g, '');
-        
-        if (rawPhone.length < 12 || rawPhone.length > 15) {
-            dispatch({
-                type: 'auth/sendOTP/rejected',
-                payload: { message: 'Please enter a valid phone number' },
-            });
-            return;
-        }
+            const rawPhone = phoneNumber.replace(/\D/g, "");
 
-        const cleanPhone = rawPhone.startsWith('91') ? `+${rawPhone}` : `+91${rawPhone}`;
-        
-        console.log(" Sending OTP to:", cleanPhone.replace(/\d(?=\d{4})/g, '*'));
+            if (rawPhone.length < 12 || rawPhone.length > 15) {
+                dispatch({
+                    type: "auth/sendOTP/rejected",
+                    payload: { message: "Please enter a valid phone number" },
+                });
+                return;
+            }
 
-        dispatch(sendOTP({ phone: cleanPhone }))
-            .unwrap()
-            .then(() => {
-                console.log(" OTP sent successfully");
-                dispatch(setCurrentStep('otp')); 
-            })
-            .catch((error) => {
-                console.error(" OTP sending failed:", error);
-            });
-    }, [phoneNumber, dispatch]);
+            const cleanPhone = rawPhone.startsWith("91")
+                ? `+${rawPhone}`
+                : `+91${rawPhone}`;
+
+            console.log(" Sending OTP to:", cleanPhone.replace(/\d(?=\d{4})/g, "*"));
+
+            dispatch(sendOTP({ phone: cleanPhone }))
+                .unwrap()
+                .then(() => {
+                    console.log(" OTP sent successfully");
+                    dispatch(setCurrentStep("otp"));
+                })
+                .catch((error) => {
+                    console.error(" OTP sending failed:", error);
+                });
+        },
+        [phoneNumber, dispatch]
+    );
 
     return (
         <div className="min-h-screen bg-[#f0f2f5] flex flex-col items-center justify-center p-4">
@@ -74,8 +87,13 @@ const PhoneInputComponent = ({ setStep }) => {
             {/* Download Banner */}
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 mb-6 w-full max-w-md flex items-center justify-between">
                 <div>
-                    <p className="text-gray-800 font-medium text-sm">Download WhatsApp for Windows</p>
-                    <p className="text-gray-500 text-xs mt-1">Make calls, share your screen and get a faster experience when you download the Windows app.</p>
+                    <p className="text-gray-800 font-medium text-sm">
+                        Download WhatsApp for Windows
+                    </p>
+                    <p className="text-gray-500 text-xs mt-1">
+                        Make calls, share your screen and get a faster experience when you
+                        download the Windows app.
+                    </p>
                 </div>
                 <button className="bg-[#25d366] hover:bg-[#20c659] text-white font-medium px-4 py-1 rounded-full text-xs transition-colors">
                     Download
@@ -84,11 +102,15 @@ const PhoneInputComponent = ({ setStep }) => {
 
             {/* Phone Input Box */}
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 w-full max-w-md">
-                <h2 className="text-xl text-gray-800 font-light mb-2 text-center">Enter phone number</h2>
-                <p className="text-xs text-gray-500 text-center mb-4">Select a country and enter your phone number.</p>
+                <h2 className="text-xl text-gray-800 font-light mb-2 text-center">
+                    Enter phone number
+                </h2>
+                <p className="text-xs text-gray-500 text-center mb-4">
+                    Select a country and enter your phone number.
+                </p>
 
                 <PhoneInput
-                    country={'in'}
+                    country={"in"}
                     value={phoneNumber}
                     onChange={handlePhoneChange}
                     inputClass="!w-full !p-3 !text-base !border !border-gray-300 !rounded-md focus:!border-[#25d366] focus:!ring-0 !outline-none"
@@ -103,9 +125,10 @@ const PhoneInputComponent = ({ setStep }) => {
                 />
 
                 {/* Debug info - only show when needed */}
-                {process.env.NODE_ENV === 'development' && phoneNumber && (
+                {import.meta.env.NODE_ENV === "development" && phoneNumber && (
                     <div className="text-xs text-gray-400 mt-1">
-                        Debug: Length {phoneNumber.replace(/\D/g, '').length} | Valid: {isValidPhone ? '✅' : '❌'}
+                        Debug: Length {phoneNumber.replace(/\D/g, "").length} | Valid:{" "}
+                        {isValidPhone ? "✅" : "❌"}
                     </div>
                 )}
 
@@ -136,7 +159,7 @@ const PhoneInputComponent = ({ setStep }) => {
 
                 {/* QR Code Login */}
                 <button
-                    onClick={() => setStep('qr')}
+                    onClick={() => setStep("qr")}
                     className="block mx-auto mt-4 text-[#25d366] hover:text-[#20c659] text-xs font-medium cursor-pointer transition-colors"
                 >
                     Log in with QR code
@@ -146,8 +169,13 @@ const PhoneInputComponent = ({ setStep }) => {
             {/* Footer */}
             <div className="mt-6 text-center text-xs text-gray-500">
                 <p>
-                    Don&apos;t have a WhatsApp account?{' '}
-                    <Link to="/signup" className="text-[#25d366] hover:underline font-medium">Get started</Link>
+                    Don&apos;t have a WhatsApp account?{" "}
+                    <Link
+                        to="/signup"
+                        className="text-[#25d366] hover:underline font-medium"
+                    >
+                        Get started
+                    </Link>
                 </p>
                 <div className="flex items-center justify-center mt-2">
                     <FaLock className="mr-1" />
