@@ -81,14 +81,14 @@ const PhoneInputComponent = ({ setStep }) => {
             {/* Logo */}
             <div className="flex items-center justify-center mb-8">
                 <FaWhatsapp className="text-[#25d366] text-5xl mr-2" />
-                <h1 className="text-4xl font-light text-gray-800">WhatsApp</h1>
+                <h1 className="text-4xl font-light text-gray-800">PK.Chat</h1>
             </div>
 
             {/* Download Banner */}
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 mb-6 w-full max-w-md flex items-center justify-between">
                 <div>
                     <p className="text-gray-800 font-medium text-sm">
-                        Download WhatsApp for Windows
+                        Download PK.Chat for Windows
                     </p>
                     <p className="text-gray-500 text-xs mt-1">
                         Make calls, share your screen and get a faster experience when you
@@ -169,7 +169,7 @@ const PhoneInputComponent = ({ setStep }) => {
             {/* Footer */}
             <div className="mt-6 text-center text-xs text-gray-500">
                 <p>
-                    Don&apos;t have a WhatsApp account?{" "}
+                    Don&apos;t have a PK.Chat account?{" "}
                     <Link
                         to="/signup"
                         className="text-[#25d366] hover:underline font-medium"

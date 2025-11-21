@@ -21,6 +21,7 @@ import {
   showUserInfo,
   showGroupInfo,
 } from "../../store/slices/uiSlice";
+import { fetchChats } from "../../../../utils/chatThunks";
 
 const ChatBox = () => {
   const dispatch = useDispatch();
@@ -61,7 +62,6 @@ const ChatBox = () => {
     handleSend,
     handleTyping,
     handleVoiceSend,
-    addMessageSafely,
     handleReaction,
     deleteMessage,
     markChatAsSeen,
@@ -200,10 +200,10 @@ const ChatBox = () => {
     return (
       <div className="flex-1 flex items-center justify-center text-gray-400 bg-[#0b141a]">
         <div className="text-center">
-          <h2 className="text-2xl text-gray-300 mb-4">WhatsApp Web</h2>
+          <h2 className="text-2xl text-gray-300 mb-4">PK.Chat Web</h2>
           <p className="text-gray-500 max-w-md mx-auto">
             Send and receive messages without keeping your phone online. Use
-            WhatsApp on up to 4 linked devices and 1 phone at the same time.
+            PK.Chat on up to 4 linked devices and 1 phone at the same time.
           </p>
         </div>
       </div>

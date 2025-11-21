@@ -13,7 +13,7 @@ const QRCode = ({ setStep }) => {
             </div>
             <div>
             <p className="text-xs md:text-sm font-medium text-gray-800 cursor-pointer">
-                Download WhatsApp for Windows
+                Download PK.Chat for Windows
             </p>
             <p className="text-[10px] md:text-xs text-gray-500">
                 Make calls, share your screen and get a faster experience when you download the Windows app.
@@ -46,7 +46,7 @@ const QRCode = ({ setStep }) => {
         <div className="flex-1 p-3 md:p-4">
             <h2 className="text-sm md:text-base font-medium text-gray-800 mb-2 md:mb-3">Steps to log in</h2>
             <ol className="text-[10px] md:text-xs text-gray-700 space-y-0.5 md:space-y-1">
-            <li>1. Open WhatsApp on your phone</li>
+            <li>1. Open PK.Chat on your phone</li>
             <li>2. On Android, tap Menu ••• or iPhone tap Settings ⚙️</li>
             <li>3. Tap Linked devices, then Link device</li>
             <li>4. Scan the QR code to confirm</li>
@@ -65,7 +65,7 @@ const QRCode = ({ setStep }) => {
         {/* Footer */}
         <div className="mt-4 md:mt-6 text-[10px] md:text-xs text-gray-500 text-center">
         <p>
-            Don't have a WhatsApp account?{' '}
+            Don't have a PK.Chat account?{' '}
             <span className="text-[#25d366] hover:underline font-medium cursor-pointer">
             Get started
             </span>

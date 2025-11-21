@@ -90,7 +90,7 @@ const UserInfoPopup = ({ user, onClose, show = true }) => {
         <div className="px-4 py-3 border-b border-[#2a3942]">
           <p className="text-sm text-gray-400 mb-2">About</p>
           <div className="text-sm text-[#e9edef]">
-            {user.about || "Hey there! I am using WhatsApp Clone."}
+            {user.about || "Hey there! I am using PK.Chat"}
           </div>
         </div>
 

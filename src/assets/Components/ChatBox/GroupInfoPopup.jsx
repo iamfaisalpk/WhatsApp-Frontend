@@ -194,7 +194,7 @@ const MemberItem = memo(({
           )}
         </div>
         <p className="text-xs text-[#8696a0] truncate">
-          {member.about || "Hey there! I am using WhatsApp"}
+          {member.about || "Hey there! I am using PK.Chat"}
         </p>
       </div>
     </div>
