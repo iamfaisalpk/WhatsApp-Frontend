@@ -1,7 +1,6 @@
 import React, { useRef, useState, useEffect } from "react";
 import { Play, Pause } from "lucide-react";
 
-
 const VoiceMessagePlayer = ({ url, duration = 0, isOwnMessage }) => {
   const audioRef = useRef(null);
   const [isPlaying, setIsPlaying] = useState(false);
