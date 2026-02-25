@@ -33,6 +33,27 @@ const ChatHeader = ({
   const avatar = isGroup ? selectedChat.groupAvatar : otherUser?.profilePic;
   const isOnline = !isGroup && otherUser?.isOnline;
 
+  const formatLastSeen = (time) => {
+    if (!time) return "Offline";
+    try {
+      const date = new Date(time);
+      if (isNaN(date.getTime())) return "Offline";
+
+      const now = new Date();
+      const diffInSeconds = Math.floor((now - date) / 1000);
+
+      if (diffInSeconds < 60) return "Active just now";
+      if (diffInSeconds < 3600)
+        return `Active ${Math.floor(diffInSeconds / 60)}m ago`;
+      if (diffInSeconds < 86400)
+        return `Active ${Math.floor(diffInSeconds / 3600)}h ago`;
+
+      return `Active ${date.toLocaleDateString()}`;
+    } catch (e) {
+      return "Offline";
+    }
+  };
+
   return (
     <div className="flex items-center justify-between px-4 py-3 bg-[var(--ig-bg)] border-b border-[var(--ig-border)] z-30 transition-colors duration-300 h-[68px] sticky top-0">
       <div className="flex items-center gap-3 min-w-0">
@@ -40,7 +61,7 @@ const ChatHeader = ({
           onClick={onBack}
           className="md:hidden cursor-pointer p-1.5 text-[var(--ig-text-primary)] hover:bg-[var(--ig-secondary-bg)] rounded-full transition-colors"
         >
-          <ArrowLeft size={24}  strokeWidth={2.5} />
+          <ArrowLeft size={24} strokeWidth={2.5} />
         </button>
 
         <div
@@ -76,9 +97,7 @@ const ChatHeader = ({
                   ? `${selectedChat.participants?.length || 0} members`
                   : isOnline
                     ? "Active now"
-                    : otherUser?.lastSeen
-                      ? `Active ${otherUser.lastSeen}`
-                      : "Offline"}
+                    : formatLastSeen(otherUser?.lastSeen)}
               </span>
             </div>
           </div>

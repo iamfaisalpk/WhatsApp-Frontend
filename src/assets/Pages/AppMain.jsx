@@ -191,11 +191,14 @@ const AppMain = () => {
   useEffect(() => {
     dispatch(fetchChats());
   }, [dispatch]);
+  const { token } = useSelector((s) => s.auth);
+
   useEffect(() => {
-    dispatch(rehydrateAuthFromStorage());
-    dispatch(fetchMe());
-    dispatch(getBlockedUsers());
-  }, [dispatch]);
+    if (token) {
+      dispatch(fetchMe());
+      dispatch(getBlockedUsers());
+    }
+  }, [dispatch, token]);
 
   /* ── WebSocket Global Listeners ── */
   useEffect(() => {

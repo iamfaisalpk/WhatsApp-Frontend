@@ -59,20 +59,6 @@ const App = () => {
   const { token } = useSelector((state) => state.auth);
 
   useEffect(() => {
-    const storedToken = localStorage.getItem("authToken");
-    const storedUser = JSON.parse(localStorage.getItem("user") || "null");
-    const refreshToken = localStorage.getItem("refreshToken");
-
-    dispatch(
-      setAuth({
-        token: storedToken || null,
-        refreshToken: refreshToken || null,
-        user: storedUser,
-      }),
-    );
-  }, [dispatch]);
-
-  useEffect(() => {
     if (token) {
       connectSocket(token);
 

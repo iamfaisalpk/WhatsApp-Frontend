@@ -22,7 +22,7 @@ const initialState = {
   debugInfo: "",
   generatedOtpForTest: "",
   user: userFromStorage,
-  isAuthLoaded: false,
+  isAuthLoaded: !!tokenFromStorage,
   token: tokenFromStorage,
   refreshToken: refreshTokenFromStorage,
   sessionExpired: false,
