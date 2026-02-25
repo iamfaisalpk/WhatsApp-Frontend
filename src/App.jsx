@@ -7,11 +7,14 @@ import {
 import { useSelector, useDispatch } from "react-redux";
 import ProtectedRoute from "./assets/Components/ProtectedRoute";
 import AppMain from "./assets/Pages/AppMain";
-import ProfileSetup from "./assets/Pages/ProfileSetup";
-import { setAuth } from "./assets/store/slices/authSlice";
-import UserProfile from "./assets/Pages/UserProfile";
+const ProfileSetup = React.lazy(() => import("./assets/Pages/ProfileSetup"));
+const UserProfile = React.lazy(() => import("./assets/Pages/UserProfile"));
+const Settings = React.lazy(() => import("./assets/Pages/Settings"));
+const GroupInvitePreview = React.lazy(
+  () => import("./assets/Pages/GroupInvitePreview"),
+);
+const ChatBox = React.lazy(() => import("./assets/Components/ChatBox/ChatBox"));
 import useAuthManager from "./hooks/useAuthManager";
-import ChatBox from "./assets/Components/ChatBox/ChatBox";
 import socket, { connectSocket } from "@/utils/socket";
 import {
   messageReceived,
@@ -19,11 +22,9 @@ import {
   messageDeleted,
 } from "./assets/store/slices/chatSlice";
 import { fetchChats, getBlockedUsers } from "@/utils/chatThunks";
-import GroupInvitePreview from "./assets/Pages/GroupInvitePreview";
 import WhatsAppAuth from "./assets/Components/WhatsAppAuth/WhatsAppAuth";
 import { Toaster } from "react-hot-toast";
-import Settings from "./assets/Pages/Settings";
-import ErrorPage from "./assets/Pages/ErrorPage";
+const ErrorPage = React.lazy(() => import("./assets/Pages/ErrorPage"));
 
 const router = createBrowserRouter([
   {
@@ -142,7 +143,15 @@ const App = () => {
   return (
     <>
       <Toaster position="top-center" reverseOrder={false} />
-      <RouterProvider router={router} />
+      <React.Suspense
+        fallback={
+          <div className="h-screen w-screen bg-black flex items-center justify-center text-white">
+            Loading...
+          </div>
+        }
+      >
+        <RouterProvider router={router} />
+      </React.Suspense>
     </>
   );
 };

@@ -488,4 +488,4 @@ const ChatList = ({ activeTab }) => {
   );
 };
 
-export default ChatList;
+export default React.memo(ChatList);

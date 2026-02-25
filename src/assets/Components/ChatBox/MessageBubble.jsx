@@ -673,4 +673,6 @@ const MessageBubble = forwardRef((props, ref) => {
 });
 
 MessageBubble.displayName = "MessageBubble";
-export default MessageBubble;
+
+const MemoizedMessageBubble = React.memo(MessageBubble);
+export default MemoizedMessageBubble;

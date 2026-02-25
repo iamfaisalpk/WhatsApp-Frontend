@@ -5,17 +5,18 @@ const baseURL = import.meta.env.VITE_API_URL;
 const socket = io(baseURL, {
   withCredentials: true,
   autoConnect: false,
+  transports: ["websocket"],
 });
 
 export function connectSocket(token) {
   if (!token) return;
 
   socket.auth = { token };
-  
+
   if (socket.connected) {
     socket.disconnect();
   }
-  
+
   socket.connect();
 }
 
