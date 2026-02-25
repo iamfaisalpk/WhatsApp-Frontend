@@ -3,4 +3,4 @@ Allow: /
 Disallow: /app/ # Don't index the private app area
 Disallow: /setup-profile/
 
-Sitemap: https://pk-chat.vercel.app/sitemap.xml
+Sitemap: https://pk-chat-frontend.vercel.app/sitemap.xml
