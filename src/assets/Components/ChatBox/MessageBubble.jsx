@@ -119,6 +119,9 @@ const MessageBubble = forwardRef((props, ref) => {
       return <Clock size={11} style={{ color: "rgba(255,255,255,0.4)" }} />;
     }
 
+    const readBy = msg.readBy || [];
+    const deliveredTo = msg.deliveredTo || [];
+
     // If anyone other than sender has read it
     const othersRead = readBy.filter((u) => {
       const uid = typeof u === "object" ? u._id : u;
