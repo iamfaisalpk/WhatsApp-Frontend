@@ -17,6 +17,7 @@ import { setSelectedChat } from "../store/slices/chatSlice";
 import instance from "../Services/axiosInstance";
 import { rehydrateAuthFromStorage, fetchMe } from "../store/slices/authSlice";
 import socket from "@/utils/socket";
+import SEO from "../Components/SEO/SEO";
 
 const igStyles = `
   :root {
@@ -346,6 +347,10 @@ const AppMain = () => {
         overflow: "hidden",
       }}
     >
+      <SEO
+        title="Messages"
+        description="View your chats and messages on PK.Chat. Connect instantly with friends."
+      />
       {/* ── LAYOUT ROW ── */}
       <div
         style={{

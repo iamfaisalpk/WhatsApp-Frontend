@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate } from "react-router-dom";
+import SEO from "../Components/SEO/SEO";
 
 const baseURL = import.meta.env.VITE_API_URL;
 
@@ -839,6 +840,10 @@ const Settings = () => {
       }}
       className="ig-settings-container"
     >
+      <SEO
+        title="Settings"
+        description="Manage your PK.Chat profile, privacy, and notification settings."
+      />
       <div
         style={{
           maxWidth: "900px",

@@ -1,0 +1,6 @@
+User-agent: *
+Allow: /
+Disallow: /app/ # Don't index the private app area
+Disallow: /setup-profile/
+
+Sitemap: https://pk-chat.vercel.app/sitemap.xml

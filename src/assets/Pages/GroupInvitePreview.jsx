@@ -5,6 +5,7 @@ import instance from "../Services/axiosInstance";
 import { fetchChats } from "@/utils/chatThunks";
 import { useDispatch, useSelector } from "react-redux";
 import { setSelectedChat, updateChatInList } from "../store/slices/chatSlice";
+import SEO from "../Components/SEO/SEO";
 
 const GroupInvitePreview = () => {
   const { inviteToken } = useParams();
@@ -204,6 +205,14 @@ const GroupInvitePreview = () => {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#111b21] text-white p-4">
+      <SEO
+        title={`Join ${groupData.groupName}`}
+        description={
+          groupData.groupDescription ||
+          `You've been invited to join ${groupData.groupName} on PK.Chat.`
+        }
+        image={groupData.groupAvatar}
+      />
       <div className="w-full max-w-sm bg-[#1f2c34] rounded-lg p-6 text-center shadow-lg">
         {/* Group Avatar */}
         <div className="relative mb-4">

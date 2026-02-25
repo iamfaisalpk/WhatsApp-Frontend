@@ -17,6 +17,7 @@ import { setUser, logoutUser, fetchMe } from "../store/slices/authSlice";
 import authAxios from "../Services/axiosInstance";
 import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate } from "react-router-dom";
+import SEO from "../Components/SEO/SEO";
 
 /* ── Instagram dark tokens ── */
 const S = {
@@ -118,6 +119,10 @@ const UserProfile = () => {
         color: S.text,
       }}
     >
+      <SEO
+        title="My Profile"
+        description="View and edit your PK.Chat profile, name, and about information."
+      />
       {/* ════════ LEFT PANEL ════════ */}
       <div
         className="profile-left-panel"
