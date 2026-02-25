@@ -26,6 +26,7 @@ import { fetchChats, getBlockedUsers } from "@/utils/chatThunks";
 import WhatsAppAuth from "./assets/Components/WhatsAppAuth/WhatsAppAuth";
 import { Toaster } from "react-hot-toast";
 const ErrorPage = React.lazy(() => import("./assets/Pages/ErrorPage"));
+import SkeletonLoader from "./assets/Components/common/SkeletonLoader";
 
 const router = createBrowserRouter([
   {
@@ -144,13 +145,7 @@ const App = () => {
   return (
     <>
       <Toaster position="top-center" reverseOrder={false} />
-      <React.Suspense
-        fallback={
-          <div className="h-screen w-screen bg-black flex items-center justify-center text-white">
-            Loading...
-          </div>
-        }
-      >
+      <React.Suspense fallback={<SkeletonLoader />}>
         <RouterProvider router={router} />
       </React.Suspense>
     </>

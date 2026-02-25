@@ -18,6 +18,7 @@ import instance from "../Services/axiosInstance";
 import { rehydrateAuthFromStorage, fetchMe } from "../store/slices/authSlice";
 import socket from "@/utils/socket";
 import SEO from "../Components/SEO/SEO";
+import SkeletonLoader from "../Components/common/SkeletonLoader";
 
 const igStyles = `
   :root {
@@ -717,13 +718,7 @@ const AppMain = () => {
                 exit={{ opacity: 0 }}
                 style={{ height: "100%", width: "100%" }}
               >
-                <React.Suspense
-                  fallback={
-                    <div className="h-full w-full bg-black flex items-center justify-center text-white">
-                      Loading...
-                    </div>
-                  }
-                >
+                <React.Suspense fallback={<SkeletonLoader />}>
                   <Outlet />
                 </React.Suspense>
               </motion.div>

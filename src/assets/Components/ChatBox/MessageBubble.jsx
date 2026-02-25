@@ -5,6 +5,7 @@ import {
   Trash2,
   MoreHorizontal,
   Plus,
+  Clock,
 } from "lucide-react";
 import EmojiPicker from "emoji-picker-react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -113,8 +114,10 @@ const MessageBubble = forwardRef((props, ref) => {
   const StatusTick = () => {
     if (!isOwn) return null;
 
-    const readBy = msg.readBy || [];
-    const deliveredTo = msg.deliveredTo || [];
+    // If message is still sending (no _id yet)
+    if (!msg._id || msg.sending) {
+      return <Clock size={11} style={{ color: "rgba(255,255,255,0.4)" }} />;
+    }
 
     // If anyone other than sender has read it
     const othersRead = readBy.filter((u) => {
@@ -131,10 +134,10 @@ const MessageBubble = forwardRef((props, ref) => {
     // If delivered to anyone
     if (deliveredTo.length > 0 || msg.status === "delivered") {
       return (
-        <CheckCheck size={14} style={{ color: "rgba(255,255,255,0.5)" }} />
+        <CheckCheck size={14} style={{ color: "rgba(255,255,255,0.6)" }} />
       );
     }
-    return <Check size={14} style={{ color: "rgba(255,255,255,0.4)" }} />;
+    return <Check size={14} style={{ color: "rgba(255,255,255,0.5)" }} />;
   };
 
   /* ── Get voice note URL (handles both string and object) ── */

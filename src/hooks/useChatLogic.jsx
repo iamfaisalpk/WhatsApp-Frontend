@@ -255,6 +255,7 @@ const useChatLogic = () => {
       createdAt: now,
       replyTo: replyParam?._id || null,
       readBy: [user._id],
+      sending: true, // Explicit sending state for clock icon
     };
 
     addMessageSafely(tempMsg);
@@ -301,6 +302,7 @@ const useChatLogic = () => {
       const finalMsg = {
         ...res.data.message,
         tempId,
+        sending: false,
         timestamp:
           res.data.message.timestamp || res.data.message.createdAt || now,
       };
