@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { toast } from "react-hot-toast";
 import instance from "../Services/axiosInstance";
-import { fetchChats } from "../../../utils/chatThunks";
+import { fetchChats } from "@/utils/chatThunks";
 import { useDispatch, useSelector } from "react-redux";
 import { setSelectedChat, updateChatInList } from "../store/slices/chatSlice";
 
@@ -53,94 +53,93 @@ const GroupInvitePreview = () => {
   }, [inviteToken]);
 
   const handleJoinGroup = async () => {
-  if (!isAuthLoaded) {
-    toast.error("Please wait, loading...");
-    return;
-  }
+    if (!isAuthLoaded) {
+      toast.error("Please wait, loading...");
+      return;
+    }
 
-  let authToken = token || localStorage.getItem("authToken");
-  const refreshToken = localStorage.getItem("refreshToken");
+    let authToken = token || localStorage.getItem("authToken");
+    const refreshToken = localStorage.getItem("refreshToken");
 
-  const redirectToPreview = () =>
-    navigate("/auth", {
-      state: { redirectTo: `/preview/${inviteToken}` },
-    });
-
-  if (!authToken && !refreshToken) {
-    toast.error("Please login to join the group");
-    return redirectToPreview();
-  }
-
-  if (!authToken && refreshToken) {
-    try {
-      const { data } = await instance.post("/api/token/refresh", {
-        refreshToken: refreshToken.trim(),
+    const redirectToPreview = () =>
+      navigate("/auth", {
+        state: { redirectTo: `/preview/${inviteToken}` },
       });
 
-      authToken = data.accessToken;
-      localStorage.setItem("authToken", authToken);
-      if (data.refreshToken)
-        localStorage.setItem("refreshToken", data.refreshToken);
-    } catch (refreshErr) {
-      console.error("Token refresh failed:", refreshErr);
-      localStorage.clear();
-      toast.error("Session expired. Please login again.");
+    if (!authToken && !refreshToken) {
+      toast.error("Please login to join the group");
       return redirectToPreview();
     }
-  }
 
-  if (!authToken) {
-    toast.error("Please login to join the group");
-    return redirectToPreview();
-  }
+    if (!authToken && refreshToken) {
+      try {
+        const { data } = await instance.post("/api/token/refresh", {
+          refreshToken: refreshToken.trim(),
+        });
 
-  try {
-    setJoining(true);
-
-    const { data } = await instance.post(
-      `/api/chat/join/${inviteToken}`,
-      {},
-      {
-        headers: {
-          Authorization: `Bearer ${authToken}`,
-        },
-      }
-    );
-
-    toast.success("You have joined the group!");
-
-    dispatch(updateChatInList(data.group));
-    dispatch(setSelectedChat(data.group));
-
-    navigate(`/app/chats/${data.group._id}`);
-  } catch (err) {
-    console.error("Join group error:", err);
-    const errorMessage = err.response?.data?.message;
-
-    switch (err.response?.status) {
-      case 401:
+        authToken = data.accessToken;
+        localStorage.setItem("authToken", authToken);
+        if (data.refreshToken)
+          localStorage.setItem("refreshToken", data.refreshToken);
+      } catch (refreshErr) {
+        console.error("Token refresh failed:", refreshErr);
         localStorage.clear();
         toast.error("Session expired. Please login again.");
-        redirectToPreview();
-        break;
-
-      case 409:
-        toast.error("You are already a member of this group");
-        navigate("/app");
-        break;
-
-      case 404:
-        toast.error("Group not found or invite expired");
-        break;
-
-      default:
-        toast.error(errorMessage || "Failed to join group");
+        return redirectToPreview();
+      }
     }
-  } finally {
-    setJoining(false);
-  }
-};
 
+    if (!authToken) {
+      toast.error("Please login to join the group");
+      return redirectToPreview();
+    }
+
+    try {
+      setJoining(true);
+
+      const { data } = await instance.post(
+        `/api/chat/join/${inviteToken}`,
+        {},
+        {
+          headers: {
+            Authorization: `Bearer ${authToken}`,
+          },
+        },
+      );
+
+      toast.success("You have joined the group!");
+
+      dispatch(updateChatInList(data.group));
+      dispatch(setSelectedChat(data.group));
+
+      navigate(`/app/chats/${data.group._id}`);
+    } catch (err) {
+      console.error("Join group error:", err);
+      const errorMessage = err.response?.data?.message;
+
+      switch (err.response?.status) {
+        case 401:
+          localStorage.clear();
+          toast.error("Session expired. Please login again.");
+          redirectToPreview();
+          break;
+
+        case 409:
+          toast.error("You are already a member of this group");
+          navigate("/app");
+          break;
+
+        case 404:
+          toast.error("Group not found or invite expired");
+          break;
+
+        default:
+          toast.error(errorMessage || "Failed to join group");
+      }
+    } finally {
+      setJoining(false);
+    }
+  };
 
   // Wait for auth to load before showing content
   if (!isAuthLoaded) {

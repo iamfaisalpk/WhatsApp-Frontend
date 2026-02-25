@@ -9,9 +9,9 @@ import { ArrowLeft, MoreVertical, Search, Brush, LogOut } from "lucide-react";
 import { useDispatch, useSelector } from "react-redux";
 import instance from "../../Services/axiosInstance";
 import { setSelectedChat } from "../../store/slices/chatSlice";
-import { fetchChats } from "../../../../utils/chatThunks";
+import { fetchChats } from "@/utils/chatThunks";
 import toast from "react-hot-toast";
-import socket from "../../../../utils/socket";
+import socket from "@/utils/socket";
 
 const GroupHeader = ({
   onBack,
@@ -31,7 +31,7 @@ const GroupHeader = ({
 
     return [
       ...new Map(
-        selectedChat.members.filter((m) => m && m._id).map((m) => [m._id, m])
+        selectedChat.members.filter((m) => m && m._id).map((m) => [m._id, m]),
       ).values(),
     ];
   }, [selectedChat?.members]);
@@ -41,35 +41,34 @@ const GroupHeader = ({
   // Improved toast helper function
   const showToast = useCallback((type, message, options = {}) => {
     switch (type) {
-      case 'success':
+      case "success":
         return toast.success(message, {
           duration: 3000,
-          position: 'top-center',
-          ...options
+          position: "top-center",
+          ...options,
         });
-      case 'error':
+      case "error":
         return toast.error(message, {
           duration: 4000,
-          position: 'top-center',
-          ...options
+          position: "top-center",
+          ...options,
         });
-      case 'info':
+      case "info":
         return toast(message, {
-          icon: 'ℹ️',
+          icon: "ℹ️",
           duration: 3000,
-          position: 'top-center',
-          ...options
+          position: "top-center",
+          ...options,
         });
-      case 'loading':
+      case "loading":
         return toast.loading(message, {
-          position: 'top-center',
-          ...options
+          position: "top-center",
+          ...options,
         });
       default:
         return toast(message, options);
     }
   }, []);
-
 
   const handleOutsideClick = useCallback((e) => {
     if (menuRef.current && !menuRef.current.contains(e.target)) {
@@ -84,21 +83,21 @@ const GroupHeader = ({
       if (chatId !== selectedChat._id) return;
       dispatch(setSelectedChat(null));
       dispatch(fetchChats());
-      showToast('info', 'You have been removed from the group');
+      showToast("info", "You have been removed from the group");
     };
 
     const handleDescriptionUpdate = ({ chatId }) => {
       if (chatId !== selectedChat._id) return;
 
       dispatch(fetchChats());
-      showToast('info', 'Group description was updated');
+      showToast("info", "Group description was updated");
     };
 
     const handleMemberChange = ({ chatId }) => {
       if (chatId !== selectedChat._id) return;
 
       dispatch(fetchChats());
-      showToast('info', 'Group members have changed');
+      showToast("info", "Group members have changed");
     };
 
     socket.on("left-group", handleLeftGroup);
@@ -112,7 +111,7 @@ const GroupHeader = ({
       socket.off("user-added-to-group", handleMemberChange);
       socket.off("user-removed-from-group", handleMemberChange);
     };
-  }, [socket, selectedChat?._id, dispatch, showToast,]);
+  }, [socket, selectedChat?._id, dispatch, showToast]);
 
   // Outside click effect
   useEffect(() => {
@@ -123,26 +122,27 @@ const GroupHeader = ({
   const handleClearChat = async () => {
     if (!selectedChat?._id || isLoading) return;
 
-    const loadingToast = showToast('loading', 'Clearing chat...');
+    const loadingToast = showToast("loading", "Clearing chat...");
     setIsLoading(true);
-    
+
     try {
       await instance.delete(`/api/messages/clear/${selectedChat._id}`);
       dispatch(fetchChats());
       onClearLocalMessages?.();
       setShowOptions(false);
-      
+
       toast.dismiss(loadingToast);
-      showToast('success', 'Chat cleared successfully');
+      showToast("success", "Chat cleared successfully");
     } catch (err) {
       console.error("Error clearing chat:", err);
       toast.dismiss(loadingToast);
-      
+
       // More specific error messages
-      const errorMessage = err?.response?.data?.message || 
-        err?.message || 
-        'Failed to clear chat. Please try again.';
-      showToast('error', errorMessage);
+      const errorMessage =
+        err?.response?.data?.message ||
+        err?.message ||
+        "Failed to clear chat. Please try again.";
+      showToast("error", errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -151,28 +151,29 @@ const GroupHeader = ({
   const handleLeaveGroup = async () => {
     if (!selectedChat?._id || isLoading) return;
 
-    const loadingToast = showToast('loading', 'Leaving group...');
+    const loadingToast = showToast("loading", "Leaving group...");
     setIsLoading(true);
-    
+
     try {
       await instance.put(`/api/chat/group-leave`, { chatId: selectedChat._id });
       dispatch(setSelectedChat(null));
       dispatch(fetchChats());
       setShowOptions(false);
-      
+
       toast.dismiss(loadingToast);
-      showToast('success', 'Left group successfully');
+      showToast("success", "Left group successfully");
     } catch (err) {
       console.error("Error leaving group:", err);
       toast.dismiss(loadingToast);
-      
+
       // More specific error messages
-      const errorMessage = err?.response?.status === 403 
-        ? 'You do not have permission to leave this group'
-        : err?.response?.data?.message || 
-          err?.message || 
-          'Failed to leave group. Please try again.';
-      showToast('error', errorMessage);
+      const errorMessage =
+        err?.response?.status === 403
+          ? "You do not have permission to leave this group"
+          : err?.response?.data?.message ||
+            err?.message ||
+            "Failed to leave group. Please try again.";
+      showToast("error", errorMessage);
     } finally {
       setIsLoading(false);
     }

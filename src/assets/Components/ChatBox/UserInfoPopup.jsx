@@ -13,14 +13,35 @@ import {
   Lock,
   Trash2,
   UserMinus,
+  AlertTriangle,
+  Info,
 } from "lucide-react";
 import instance from "../../Services/axiosInstance";
-import { useSelector } from "react-redux";
+import { useSelector, useDispatch } from "react-redux";
 import { motion, AnimatePresence } from "framer-motion";
+import {
+  toggleFavorite,
+  toggleMuteChat,
+  blockUser,
+  unblockUser,
+  clearChat,
+  deleteChat,
+} from "@/utils/chatThunks";
+import { toast } from "react-hot-toast";
+import { setSelectedChat } from "../../store/slices/chatSlice";
 
-const UserInfoPopup = ({ user, onClose, show = true }) => {
+const UserInfoPopup = ({ user, onClose }) => {
+  const dispatch = useDispatch();
   const { user: currentUser } = useSelector((s) => s.auth);
+  const { selectedChat, blockedByMe } = useSelector((s) => s.chat);
   const [sharedGroups, setSharedGroups] = useState([]);
+  const [sharedMedia, setSharedMedia] = useState([]);
+  const [showAllMedia, setShowAllMedia] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  const isBlocked = blockedByMe.some((id) => String(id) === String(user?._id));
+  const isFavorite = selectedChat?.isFavorite;
+  const isMuted = selectedChat?.muted;
 
   useEffect(() => {
     const fetchSharedGroups = async () => {
@@ -32,128 +53,251 @@ const UserInfoPopup = ({ user, onClose, show = true }) => {
         console.error("Error fetching shared groups:", err);
       }
     };
+    const fetchSharedMedia = async () => {
+      try {
+        if (!selectedChat?._id) return;
+        const res = await instance.get(
+          `/api/messages/shared-media/${selectedChat._id}`,
+        );
+        setSharedMedia(res.data.media || []);
+      } catch (err) {
+        console.error("Error fetching shared media:", err);
+      }
+    };
     fetchSharedGroups();
-  }, [user]);
+    fetchSharedMedia();
+  }, [user, selectedChat]);
+
+  const handleToggleFavorite = async () => {
+    if (!selectedChat?._id) return;
+    try {
+      await dispatch(toggleFavorite(selectedChat._id)).unwrap();
+      toast.success(
+        isFavorite ? "Removed from favorites" : "Added to favorites",
+      );
+    } catch (err) {
+      toast.error("Action failed");
+    }
+  };
+
+  const handleToggleMute = async () => {
+    if (!selectedChat?._id) return;
+    try {
+      await dispatch(toggleMuteChat(selectedChat._id)).unwrap();
+      toast.success(isMuted ? "Notifications unmuted" : "Notifications muted");
+    } catch (err) {
+      toast.error("Action failed");
+    }
+  };
+
+  const handleBlockToggle = async () => {
+    if (!user?._id) return;
+    if (loading) return;
+    setLoading(true);
+    try {
+      if (isBlocked) {
+        await dispatch(unblockUser(user._id)).unwrap();
+        toast.success("User unblocked");
+      } else {
+        if (!window.confirm(`Are you sure you want to block ${user.name}?`))
+          return;
+        await dispatch(blockUser(user._id)).unwrap();
+        toast.success("User blocked");
+      }
+    } catch (err) {
+      toast.error(err || "Action failed");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleClearChat = async () => {
+    if (!selectedChat?._id) return;
+    if (
+      !window.confirm("Clear all messages in this chat? This cannot be undone.")
+    )
+      return;
+    try {
+      await dispatch(clearChat(selectedChat._id)).unwrap();
+      toast.success("Chat cleared");
+    } catch (err) {
+      toast.error("Failed to clear chat");
+    }
+  };
+
+  const handleDeleteChat = async () => {
+    if (!selectedChat?._id) return;
+    if (
+      !window.confirm(
+        "Delete this chat? All messages and media will be removed for you.",
+      )
+    )
+      return;
+    try {
+      await dispatch(deleteChat(selectedChat._id)).unwrap();
+      toast.success("Chat deleted");
+      onClose();
+    } catch (err) {
+      toast.error("Failed to delete chat");
+    }
+  };
 
   if (!user) return null;
 
-    const menuItems = [
-    { icon: MessageSquare, label: "Media, links and docs", count: 0 },
-    { icon: MessageCircle, label: "Starred messages" },
-    { icon: Bell, label: "Mute notifications", toggle: true },
-    { icon: MessageSquare, label: "Disappearing messages", status: "Off" },
-    { icon: Shield, label: "Advanced chat privacy" },
-    {
-        icon: Lock,
-        label: "Encryption",
-        subtitle: "Messages are end-to-end encrypted. Click to verify.",
-    },
-  ];
-
   return (
-    <AnimatePresence>
-        <motion.div 
-        key="user-info-popup"
-        initial={{ x: "100%" }}
-        animate={{ x: 0 }}
-        exit={{ x: "100%" }}
-        transition={{
-        type: "spring",
-        stiffness: 260,
-        damping: 20,
-            }}
-        className="w-[380px] h-full bg-[#161717] text-white shadow-lg border-l border-[#2a3942] flex-shrink-0 overflow-hidden">
-        {/* Header */}
-      <div className="flex justify-between items-center p-4 border-b border-[#2a3942]">
-        <h2 className="text-lg font-medium">Contact info</h2>
-        <X
-          size={20}
-          className="cursor-pointer text-gray-400 hover:text-white transition-colors"
+    <div className="flex flex-col h-full bg-[var(--ig-bg)] border-l border-[var(--ig-border)]">
+      {/* Header */}
+      <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--ig-secondary-bg)]">
+        <h2 className="text-sm font-bold text-[var(--ig-text-primary)] uppercase tracking-widest">
+          Contact Details
+        </h2>
+        <button
           onClick={onClose}
-        />
+          className="p-2 cursor-pointer hover:bg-[var(--ig-secondary-bg)] rounded-xl text-[var(--ig-text-secondary)] hover:text-[var(--ig-text-primary)] transition-all"
+        >
+          <X size={20} />
+        </button>
       </div>
 
-      {/* Scrollable content */}
-      <div className="overflow-y-auto h-[calc(100%-72px)] scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-transparent">
-        {/* Profile Section */}
-        <div className="flex flex-col items-center text-center p-6">
-          <img
-            src={user.profilePic || "/default-avatar.png"}
-            alt={user.name || "User"}
-            className="w-32 h-32 rounded-full object-cover mb-4 border-2 border-[#2a3942]"
-          />
-          <h3 className="text-xl font-semibold mb-1">{user.name}</h3>
-          <p className="text-sm text-gray-400">{user.phone}</p>
-        </div>
-
-        {/* About Section */}
-        <div className="px-4 py-3 border-b border-[#2a3942]">
-          <p className="text-sm text-gray-400 mb-2">About</p>
-          <div className="text-sm text-[#e9edef]">
-            {user.about || "Hey there! I am using PK.Chat"}
-          </div>
-        </div>
-
-        {/* Menu Items */}
-        <div className="py-2">
-          {menuItems.map((item, index) => (
+      <div className="flex-1 overflow-y-auto custom-scrollbar">
+        {/* Profile Card */}
+        <div className="p-8 flex flex-col items-center border-b border-[var(--ig-secondary-bg)]">
+          <motion.div
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className="avatar-ring p-1 mb-6"
+          >
             <div
-              key={index}
-              className="flex items-center justify-between px-4 py-3 hover:bg-[#2a3942] cursor-pointer transition-colors"
+              className={`w-40 h-40 rounded-full overflow-hidden border-4 border-[var(--ig-bg)] shadow-2xl flex items-center justify-center ${user.profilePic ? "" : "bg-[var(--ig-secondary-bg)]"}`}
             >
-              <div className="flex items-center space-x-3">
-                <item.icon size={20} className="text-[#8696a0]" />
-                <div>
-                  <p className="text-sm text-[#e9edef]">{item.label}</p>
-                  {item.subtitle && (
-                    <p className="text-xs text-[#8696a0] mt-1">{item.subtitle}</p>
-                  )}
-                </div>
-              </div>
-              <div className="flex items-center space-x-2">
-                {item.count !== undefined && (
-                  <span className="text-sm text-[#8696a0]">{item.count}</span>
-                )}
-                {item.status && (
-                  <span className="text-sm text-[#8696a0]">{item.status}</span>
-                )}
-                {item.toggle && (
-                  <div className="w-10 h-6 bg-[#2a3942] rounded-full relative cursor-pointer">
-                    <div className="w-4 h-4 bg-[#8696a0] rounded-full absolute top-1 left-1 transition-transform"></div>
-                  </div>
-                )}
-              </div>
+              {user.profilePic ? (
+                <img
+                  src={user.profilePic}
+                  alt=""
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <span className="text-white text-6xl font-black uppercase">
+                  {user.name?.charAt(0) || "?"}
+                </span>
+              )}
             </div>
-          ))}
+          </motion.div>
+          <h3 className="text-xl font-bold text-[var(--ig-text-primary)] mb-1">
+            {user.name}
+          </h3>
+          <p className="text-sm text-[var(--ig-text-secondary)] font-medium tracking-wide">
+            {user.phone}
+          </p>
         </div>
 
-        {/* Shared Groups Section */}
+        {/* About Info */}
+        <div className="p-6 border-b border-[var(--ig-secondary-bg)]">
+          <h4 className="text-[10px] font-bold text-[var(--ig-primary)] uppercase tracking-widest mb-3">
+            About
+          </h4>
+          <p className="text-sm text-[var(--ig-text-primary)] leading-relaxed">
+            {user.about || "Hey there! I am using PK.Chat"}
+          </p>
+        </div>
+
+        {/* Action List */}
+        <div className="p-2 space-y-1">
+          <ActionButton
+            icon={MessageSquare}
+            label={`Shared Media (${sharedMedia.length})`}
+            color="text-blue-500"
+            onClick={() => setShowAllMedia(!showAllMedia)}
+          />
+
+          {sharedMedia.length > 0 && (
+            <div className="px-6 py-2">
+              <div className="grid grid-cols-3 gap-2">
+                {sharedMedia.slice(0, showAllMedia ? undefined : 6).map((m) => (
+                  <div
+                    key={m._id}
+                    className="aspect-square rounded-lg bg-[var(--ig-secondary-bg)] overflow-hidden border border-[var(--ig-border)] cursor-pointer hover:opacity-80 transition-opacity"
+                    onClick={() => window.open(m.url, "_blank")}
+                  >
+                    {m.type === "image" ? (
+                      <img
+                        src={m.url}
+                        className="w-full h-full object-cover"
+                        alt=""
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-[10px] text-[var(--ig-text-secondary)]">
+                        {m.type === "video" ? "🎥" : "📎"}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+              {sharedMedia.length > 6 && (
+                <button
+                  onClick={() => setShowAllMedia(!showAllMedia)}
+                  className="mt-2 cursor-pointer text-[10px] font-bold text-[var(--ig-primary)] uppercase tracking-widest hover:underline"
+                >
+                  {showAllMedia
+                    ? "Show Less"
+                    : `View All ${sharedMedia.length}`}
+                </button>
+              )}
+            </div>
+          )}
+          <ActionButton
+            icon={isMuted ? BellOff : Bell}
+            label={isMuted ? "Unmute Notifications" : "Mute Notifications"}
+            color={isMuted ? "text-[#8696a0]" : "text-orange-500"}
+            onClick={handleToggleMute}
+          />
+          <ActionButton
+            icon={Heart}
+            label={isFavorite ? "Favorited" : "Add to Favorites"}
+            color={
+              isFavorite ? "text-pink-500" : "text-[var(--ig-text-secondary)]"
+            }
+            fill={isFavorite}
+            onClick={handleToggleFavorite}
+          />
+          <ActionButton
+            icon={Shield}
+            label="Encryption Status"
+            color="text-green-500"
+            onClick={() =>
+              toast.info("Your messages are end-to-end encrypted.", {
+                icon: "🔒",
+                style: { background: "#111", color: "#fff", fontSize: "12px" },
+              })
+            }
+          />
+        </div>
+
+        {/* Groups In Common */}
         {sharedGroups.length > 0 && (
-          <div className="px-4 py-3 border-t border-[#2a3942]">
-            <p className="text-sm text-gray-400 mb-3">
-              {sharedGroups.length} groups in common
-            </p>
-            <div className="space-y-2">
+          <div className="p-6 border-t border-[var(--ig-secondary-bg)]">
+            <h4 className="text-[10px] font-bold text-[var(--ig-primary)] uppercase tracking-widest mb-4">
+              Groups in Common
+            </h4>
+            <div className="space-y-4">
               {sharedGroups.map((group) => (
                 <div
                   key={group._id}
-                  className="flex items-center space-x-3 py-2 hover:bg-[#2a3942] cursor-pointer rounded transition-colors"
+                  className="flex items-center gap-3 p-3 bg-[var(--ig-secondary-bg)] rounded-2xl cursor-pointer border border-[var(--ig-border)] hover:opacity-80 transition-opacity"
                 >
-                  <img
-                    src={group.groupAvatar || "/default-avatar.png"}
-                    alt={group.groupName}
-                    className="w-10 h-10 rounded-full object-cover"
-                  />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-[#e9edef] truncate">{group.groupName}</p>
-                    <p className="text-xs text-[#8696a0] truncate">
-                      {group.members
-                        .map((m) => m.name)
-                        .filter((n) => n !== currentUser.name)
-                        .slice(0, 3)
-                        .join(", ")}
-                      {group.members.length > 4 &&
-                        `, +${group.members.length - 4} more`}
+                  <div className="w-10 h-10 rounded-xl overflow-hidden">
+                    <img
+                      src={group.groupAvatar || "/WhatsApp.jpg"}
+                      className="w-full h-full object-cover"
+                      alt=""
+                    />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-bold text-[var(--ig-text-primary)] truncate">
+                      {group.groupName}
+                    </p>
+                    <p className="text-xs text-[var(--ig-text-secondary)] truncate">
+                      {group.members?.length} Members
                     </p>
                   </div>
                 </div>
@@ -162,32 +306,55 @@ const UserInfoPopup = ({ user, onClose, show = true }) => {
           </div>
         )}
 
-        {/* Action Buttons */}
-        <div className="px-4 py-3 border-t border-[#2a3942] space-y-2">
-          <button className="flex items-center space-x-3 w-full px-2 py-3 hover:bg-[#2a3942] rounded text-left transition-colors">
-            <Heart size={20} className="text-[#8696a0]" />
-            <span className="text-sm text-[#e9edef]">Add to favorites</span>
+        {/* Danger Zone */}
+        <div className="p-6 space-y-3 mt-4">
+          <button
+            onClick={handleBlockToggle}
+            disabled={loading}
+            className={`w-full flex cursor-pointer items-center gap-3 px-4 py-3 rounded-2xl text-sm font-bold transition-all border ${
+              isBlocked
+                ? "bg-green-500/10 text-green-500 border-green-500/20 hover:bg-green-500/20"
+                : "bg-red-50 text-red-500 border-red-100 hover:bg-red-100 dark:bg-red-500/10 dark:border-red-500/20"
+            }`}
+          >
+            {isBlocked ? <Shield size={18} /> : <UserMinus size={18} />}
+            {isBlocked ? "Unblock User" : "Block User"}
           </button>
 
-          <button className="flex items-center space-x-3 w-full px-2 py-3 hover:bg-[#2a3942] rounded text-left transition-colors">
-            <UserMinus size={20} className="text-[#8696a0]" />
-            <span className="text-sm text-[#e9edef]">Block {user.name}</span>
+          <button
+            onClick={handleClearChat}
+            className="w-full cursor-pointer flex items-center gap-3 px-4 py-3 rounded-2xl text-[var(--ig-text-secondary)] text-xs font-bold hover:bg-[var(--ig-secondary-bg)] hover:text-red-500 transition-all justify-center"
+          >
+            <AlertTriangle size={16} /> Clear Chat History
           </button>
 
-          <button className="flex items-center space-x-3 w-full px-2 py-3 hover:bg-[#2a3942] rounded text-left transition-colors">
-            <MessageCircle size={20} className="text-[#8696a0]" />
-            <span className="text-sm text-[#e9edef]">Report {user.name}</span>
-          </button>
-
-          <button className="flex items-center space-x-3 w-full px-2 py-3 hover:bg-[#2a3942] rounded text-left transition-colors text-red-400">
-            <Trash2 size={20} className="text-red-400" />
-            <span className="text-sm">Delete chat</span>
+          <button
+            onClick={handleDeleteChat}
+            className="w-full cursor-pointer flex items-center gap-3 px-4 py-3 rounded-2xl text-red-500/60 text-[11px] font-bold hover:text-red-500 transition-all justify-center"
+          >
+            <Trash2 size={16} /> Delete Chat Permanently
           </button>
         </div>
       </div>
-    </motion.div>
-    </AnimatePresence>
+    </div>
   );
 };
+
+/* ── Helper Component ── */
+const ActionButton = ({ icon: Icon, label, color, onClick, fill }) => (
+  <button
+    onClick={onClick}
+    className="w-full flex cursor-pointer items-center gap-4 px-4 py-3 hover:bg-[var(--ig-secondary-bg)] rounded-2xl transition-all group text-left"
+  >
+    <div
+      className={`p-2 rounded-xl bg-[var(--ig-secondary-bg)] group-hover:scale-110 transition-transform ${color}`}
+    >
+      <Icon size={18} fill={fill ? "currentColor" : "none"} />
+    </div>
+    <span className="text-sm font-semibold text-[var(--ig-text-primary)]">
+      {label}
+    </span>
+  </button>
+);
 
 export default UserInfoPopup;

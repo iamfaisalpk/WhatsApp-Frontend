@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useSelector, useDispatch } from "react-redux";
-import ScrollToBottom from "react-scroll-to-bottom";
 import {
   setSelectedChat,
   updateSeenByInSelectedChat,
@@ -14,34 +13,72 @@ import useChatLogic from "../../../hooks/useChatLogic";
 import MediaViewer from "../common/MediaViewer";
 import UserInfoPopup from "./UserInfoPopup";
 import GroupInfoPopup from "./GroupInfoPopup";
-import socket from "../../../../utils/socket";
+import socket from "@/utils/socket";
 import GroupHeader from "./GroupHeader";
 import {
   closeAllPopups,
   showUserInfo,
   showGroupInfo,
 } from "../../store/slices/uiSlice";
-import { fetchChats } from "../../../../utils/chatThunks";
+import { fetchChats } from "@/utils/chatThunks";
+import { motion, AnimatePresence } from "framer-motion";
+import { MessageSquare, ArrowLeft } from "lucide-react";
+
+/* ── Inject shared IG styles once ── */
+const igChatStyles = `
+  .ig-chat-bg { background: var(--ig-bg, #000); }
+
+  .chat-scroll-area {
+    overflow-y: auto;
+    height: 100%;
+    scroll-behavior: smooth;
+  }
+  .chat-scroll-area::-webkit-scrollbar { width: 4px; }
+  .chat-scroll-area::-webkit-scrollbar-track { background: transparent; }
+  .chat-scroll-area::-webkit-scrollbar-thumb {
+    background: rgba(255,255,255,0.12);
+    border-radius: 4px;
+  }
+  .chat-scroll-area::-webkit-scrollbar-thumb:hover {
+    background: rgba(255,255,255,0.25);
+  }
+
+  .no-scrollbar::-webkit-scrollbar { display: none; }
+  .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+  .avatar-ring {
+    background: linear-gradient(135deg,#f09433 0%,#e6683c 25%,#dc2743 50%,#cc2366 75%,#bc1888 100%);
+    padding: 2px;
+    border-radius: 50%;
+    display: inline-block;
+  }
+`;
 
 const ChatBox = () => {
   const dispatch = useDispatch();
   const { selectedChat, chats } = useSelector((state) => state.chat);
   const { user } = useSelector((state) => state.auth);
 
-  const [forwardModalOpen, setForwardModalOpen] = useState(false);
   const [viewedMedia, setViewedMedia] = useState(null);
-
-  const [showInviteModal, setShowInviteModal] = useState(false);
-
   const [infoPanelType, setInfoPanelType] = useState(null);
   const [selectedUser, setSelectedUser] = useState(null);
-
-  const selectedChatRef = useRef(selectedChat);
 
   const { showUserInfo: showUserInfoState, showGroupInfo: showGroupInfoState } =
     useSelector((state) => state.ui);
 
-  const lastMessageRef = useRef(null);
+  const scrollContainerRef = useRef(null);
+  const bottomRef = useRef(null);
+
+  /* inject styles once */
+  useEffect(() => {
+    const id = "ig-chat-styles";
+    if (!document.getElementById(id)) {
+      const el = document.createElement("style");
+      el.id = id;
+      el.textContent = igChatStyles;
+      document.head.appendChild(el);
+    }
+  }, []);
 
   const {
     messages,
@@ -67,294 +104,351 @@ const ChatBox = () => {
     markChatAsSeen,
   } = useChatLogic();
 
-  const safeSearch = (searchText || "").toString().toLowerCase();
-
   const filteredMessages = messages.filter((msg) => {
-  if (!searchText) return true; 
+    if (!searchText) return true;
+    return msg.text?.toLowerCase().includes(searchText.toLowerCase());
+  });
 
-  const text = msg.text || "";
-  return text.toLowerCase().includes(safeSearch);
-});
-
-
-  const isGroup = selectedChat?.isGroup;
-
+  /* Auto-scroll to bottom when messages change */
   useEffect(() => {
-    selectedChatRef.current = selectedChat;
-  }, [selectedChat]);
-
-  useEffect(() => {
-    if (!socket) return;
-
-    const handleSeenUpdate = ({ conversationId, readBy, messageIds }) => {
-      dispatch(
-        updateSeenByInSelectedChat({
-          conversationId,
-          readBy: readBy,
-          messageIds,
-        })
-      );
-    };
-
-    const handleUserLeftGroup = ({ chatId, userId, updatedChat }) => {
-      const currentChat = selectedChatRef.current;
-      if (!chatId || !userId || !currentChat) return;
-
-      if (currentChat._id === chatId) {
-        if (userId === user._id) {
-          dispatch(setSelectedChat(null));
-          localStorage.removeItem("selectedChat");
-        } else {
-          dispatch(setSelectedChat(updatedChat));
-        }
-      }
-
-      dispatch(fetchChats());
-    };
-
-    const handleUserAddedToGroup = ({ chatId, updatedChat }) => {
-      if (selectedChatRef.current?._id === chatId) {
-        dispatch(setSelectedChat(updatedChat));
-      }
-      dispatch(fetchChats());
-    };
-
-    const handleUserRemovedFromGroup = ({ chatId, userId, updatedChat }) => {
-      const currentChat = selectedChatRef.current;
-
-      if (currentChat?._id === chatId) {
-        if (userId === user._id) {
-          dispatch(setSelectedChat(null));
-          localStorage.removeItem("selectedChat");
-        } else {
-          dispatch(setSelectedChat(updatedChat));
-        }
-      }
-      dispatch(fetchChats());
-    };
-
-    socket.on("seen-update", handleSeenUpdate);
-    socket.on("left-group", handleUserLeftGroup);
-    socket.on("user-added-to-group", handleUserAddedToGroup);
-    socket.on("user-removed-from-group", handleUserRemovedFromGroup);
-
-    return () => {
-      socket.off("seen-update", handleSeenUpdate);
-      socket.off("left-group", handleUserLeftGroup);
-      socket.off("user-added-to-group", handleUserAddedToGroup);
-      socket.off("user-removed-from-group", handleUserRemovedFromGroup);
-    };
-  }, [socket, dispatch, user._id]);
-
-  useEffect(() => {
-    const savedChat = JSON.parse(localStorage.getItem("selectedChat"));
-
-    if (savedChat && chats?.length > 0) {
-      const matchedChat = chats.find((c) => c._id === savedChat._id);
-
-      if (matchedChat) {
-        dispatch(setSelectedChat(matchedChat));
-      } else {
-        localStorage.removeItem("selectedChat");
-      }
+    if (bottomRef.current) {
+      bottomRef.current.scrollIntoView({ behavior: "smooth" });
     }
-  }, [chats]);
+  }, [filteredMessages.length, typingUserId]);
 
+  /* Also scroll to bottom immediately when chat is first loaded */
   useEffect(() => {
-    if (!lastMessageRef.current || !selectedChat?._id) return;
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        const [entry] = entries;
-        if (entry.isIntersecting) {
-          markChatAsSeen();
-        }
-      },
-      { threshold: 0.7 }
-    );
-
-    observer.observe(lastMessageRef.current);
-
-    return () => {
-      if (lastMessageRef.current) observer.unobserve(lastMessageRef.current);
-    };
-  }, [filteredMessages.length, selectedChat?._id]);
+    if (bottomRef.current && messages.length > 0) {
+      bottomRef.current.scrollIntoView({ behavior: "instant" });
+    }
+  }, [selectedChat?._id]);
 
   const otherUser = useMemo(() => {
-    if (
-      !selectedChat?.members ||
-      !Array.isArray(selectedChat.members) ||
-      !user ||
-      !user._id
-    )
-      return null;
+    if (!selectedChat?.isGroup && selectedChat?.members) {
+      return selectedChat.members.find(
+        (m) => m && String(m._id) !== String(user?._id),
+      );
+    }
+    return null;
+  }, [selectedChat, user]);
 
-    const others = selectedChat.members.filter(
-      (u) => u && u._id && u._id !== user._id
-    );
-
-    return others.length > 0 ? others[0] : null;
-  }, [selectedChat?.members, user?._id]);
+  const isBlocked = useMemo(() => {
+    if (!otherUser) return false;
+    return otherUser.isBlockedByMe || otherUser.isBlockedByThem;
+  }, [otherUser]);
 
   if (!selectedChat) {
     return (
-      <div className="flex-1 flex items-center justify-center text-gray-400 bg-[#0b141a]">
-        <div className="text-center">
-          <h2 className="text-2xl text-gray-300 mb-4">PK.Chat Web</h2>
-          <p className="text-gray-500 max-w-md mx-auto">
-            Send and receive messages without keeping your phone online. Use
-            PK.Chat on up to 4 linked devices and 1 phone at the same time.
+      <div
+        style={{
+          flex: 1,
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          justifyContent: "center",
+          background: "var(--ig-bg, #000)",
+          padding: "32px",
+          textAlign: "center",
+        }}
+      >
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          style={{ maxWidth: "320px" }}
+        >
+          <div
+            style={{
+              width: "88px",
+              height: "88px",
+              background:
+                "linear-gradient(135deg,#f09433 0%,#e6683c 25%,#dc2743 50%,#cc2366 75%,#bc1888 100%)",
+              borderRadius: "50%",
+              padding: "2px",
+              margin: "0 auto 24px",
+            }}
+          >
+            <div
+              style={{
+                width: "100%",
+                height: "100%",
+                background: "var(--ig-bg,#000)",
+                borderRadius: "50%",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <MessageSquare size={40} color="#fff" strokeWidth={1.5} />
+            </div>
+          </div>
+          <h2
+            style={{
+              fontSize: "22px",
+              fontWeight: 900,
+              color: "#fff",
+              letterSpacing: "-0.5px",
+              marginBottom: "10px",
+            }}
+          >
+            Your Messages
+          </h2>
+          <p
+            style={{
+              color: "rgba(255,255,255,0.4)",
+              fontSize: "14px",
+              lineHeight: 1.6,
+            }}
+          >
+            Select a conversation to start messaging. Your chats are end-to-end
+            encrypted.
           </p>
-        </div>
+        </motion.div>
       </div>
     );
   }
 
-  const showInfoPanel = showUserInfoState || showGroupInfoState;
-
   return (
-    <div className="flex h-full bg-[#161717]">
-      {/* Main Chat Column - Adjust width when info panel is open */}
+    <div
+      style={{
+        display: "flex",
+        height: "100%",
+        background: "var(--ig-bg,#000)",
+        overflow: "hidden",
+        position: "relative",
+      }}
+    >
+      {/* ── MAIN CHAT COLUMN ── */}
       <div
-        className={`flex flex-col relative transition-all duration-300 ${
-          showInfoPanel ? "flex-1" : "w-full"
-        }`}
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          flex: 1,
+          minWidth: 0,
+          zIndex: 10,
+          height: "100%",
+        }}
       >
-        {/* Chat background */}
-        <div
-          className="absolute inset-0 opacity-[0.60] z-0"
-          style={{ backgroundImage: `url("/WhatsApp.jpg")` }}
+        {/* Header */}
+        <ChatHeader
+          otherUser={otherUser}
+          onBack={() => {
+            dispatch(setSelectedChat(null));
+            navigate("/app");
+          }}
+          onSearch={setSearchText}
+          onClearLocalMessages={() => setMessages([])}
+          onUserInfo={() => {
+            dispatch(showUserInfo());
+            setSelectedUser(otherUser);
+            setInfoPanelType("user");
+          }}
+          onGroupInfo={() => {
+            dispatch(showGroupInfo());
+            setInfoPanelType("group");
+          }}
         />
 
-        {/* Header */}
-        {isGroup ? (
-          <GroupHeader
-            onBack={() => dispatch(setSelectedChat(null))}
-            onSearch={setSearchText}
-            onClearLocalMessages={() => setMessages([])}
-            onGroupInfo={() => {
-              dispatch(showGroupInfo());
-              setInfoPanelType("group");
+        {/* Messages Scroll Area */}
+        <div
+          ref={scrollContainerRef}
+          className="chat-scroll-area"
+          style={{
+            flex: 1,
+            minHeight: 0,
+            overflowY: "auto",
+            overflowX: "hidden",
+            background: "var(--ig-bg,#000)",
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: "2px",
+              padding: "16px",
+              maxWidth: "760px",
+              margin: "0 auto",
+              width: "100%",
+              minHeight: "100%",
             }}
-          />
-        ) : (
-          <ChatHeader
-            otherUser={otherUser}
-            onBack={() => dispatch(setSelectedChat(null))}
-            onSearch={setSearchText}
-            onClearLocalMessages={() => setMessages([])}
-            isSelectionMode={isSelectionMode}
-            selectedCount={selectedMessages.length}
-            onClearSelection={() => {
-              setSelectedMessages([]);
-              setIsSelectionMode(false);
-            }}
-            onForward={() => setForwardModalOpen(true)}
-            onUserInfo={() => {
-              dispatch(showUserInfo());
-              setSelectedUser(otherUser);
-              setInfoPanelType("user");
-            }}
-            onGroupInfo={() => {
-              dispatch(showGroupInfo());
-              setInfoPanelType("group");
-            }}
-          />
-        )}
+          >
+            {/* Chat intro header */}
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                marginBottom: "32px",
+                marginTop: "16px",
+              }}
+            >
+              <div className="avatar-ring" style={{ marginBottom: "12px" }}>
+                <div
+                  style={{
+                    width: "80px",
+                    height: "80px",
+                    borderRadius: "50%",
+                    overflow: "hidden",
+                    border: "2px solid var(--ig-bg,#000)",
+                  }}
+                >
+                  {otherUser?.profilePic || selectedChat?.groupAvatar ? (
+                    <img
+                      src={otherUser?.profilePic || selectedChat?.groupAvatar}
+                      alt=""
+                      style={{
+                        width: "100%",
+                        height: "100%",
+                        objectFit: "cover",
+                      }}
+                    />
+                  ) : (
+                    <div
+                      style={{
+                        width: "100%",
+                        height: "100%",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        background: "var(--ig-secondary-bg, #1a1a1a)",
+                      }}
+                    >
+                      <span className="text-white text-4xl font-black uppercase">
+                        {(
+                          otherUser?.name ||
+                          selectedChat?.groupName ||
+                          "?"
+                        ).charAt(0)}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </div>
+              <h3
+                style={{
+                  fontSize: "18px",
+                  fontWeight: 800,
+                  color: "#fff",
+                  marginBottom: "4px",
+                }}
+              >
+                {otherUser?.name || selectedChat?.groupName}
+              </h3>
+              <p
+                style={{
+                  fontSize: "13px",
+                  color: "rgba(255,255,255,0.4)",
+                  marginBottom: "12px",
+                }}
+              >
+                {otherUser?.isOnline ? "● Online" : "Offline"}
+              </p>
+              <button
+                onClick={() => dispatch(showUserInfo())}
+                style={{
+                  background: "rgba(255,255,255,0.08)",
+                  border: "1px solid rgba(255,255,255,0.1)",
+                  borderRadius: "10px",
+                  padding: "7px 18px",
+                  color: "#fff",
+                  fontSize: "13px",
+                  fontWeight: 700,
+                  cursor: "pointer",
+                  transition: "background 0.15s",
+                }}
+                onMouseEnter={(e) =>
+                  (e.currentTarget.style.background = "rgba(255,255,255,0.14)")
+                }
+                onMouseLeave={(e) =>
+                  (e.currentTarget.style.background = "rgba(255,255,255,0.08)")
+                }
+              >
+                View Profile
+              </button>
+            </div>
 
-        {/* Messages */}
-        <ScrollToBottom className="flex-1 overflow-y-auto px-4 py-4 z-10 relative">
-          <div className="space-y-2">
+            {/* Messages */}
             {filteredMessages.map((msg, i) => (
               <MessageBubble
-                key={msg._id || msg._clientKey || i}
-                ref={i === filteredMessages.length - 1 ? lastMessageRef : null}
+                key={msg._id || msg.tempId || i}
                 msg={msg}
-                isLast={i === filteredMessages.length - 1}
-                index={i}
-                allMessages={filteredMessages}
                 user={user}
                 otherUser={otherUser}
                 replyToMessage={replyToMessage}
                 setReplyToMessage={setReplyToMessage}
                 selectedMessages={selectedMessages}
+                setSelectedMessages={setSelectedMessages}
                 setSelectedUser={setSelectedUser}
                 setInfoPanelType={setInfoPanelType}
-                setSelectedMessages={setSelectedMessages}
-                isSelectionMode={isSelectionMode}
-                setIsSelectionMode={setIsSelectionMode}
                 setViewedMedia={setViewedMedia}
                 onDelete={deleteMessage}
                 onReact={handleReaction}
               />
             ))}
 
-            {typingUserId &&
-              Array.isArray(selectedChat?.members) &&
-              selectedChat.members.some((u) => u?._id === typingUserId) && (
-                <TypingIndicator
-                  typingUser={selectedChat.members.find(
-                    (u) => u?._id === typingUserId
-                  )}
-                />
-              )}
-          </div>
-        </ScrollToBottom>
+            {typingUserId && typingUserId !== user?._id && (
+              <div style={{ marginLeft: "8px", marginBottom: "16px" }}>
+                <TypingIndicator />
+              </div>
+            )}
 
-        {/* Chat Input */}
-        {!forwardModalOpen && !showInviteModal && (
-          <ChatInput
-            newMessage={newMessage}
-            setNewMessage={setNewMessage}
-            mediaFile={mediaFile}
-            setMediaFile={setMediaFile}
-            onSend={handleSend}
-            onTyping={handleTyping}
-            onVoiceSend={handleVoiceSend}
-            replyToMessage={replyToMessage}
-            setReplyToMessage={setReplyToMessage}
-          />
-        )}
+            {/* Invisible anchor to scroll to */}
+            <div ref={bottomRef} style={{ height: "1px" }} />
+          </div>
+        </div>
+
+        {/* Input */}
+        <ChatInput
+          newMessage={newMessage}
+          setNewMessage={setNewMessage}
+          mediaFile={mediaFile}
+          setMediaFile={setMediaFile}
+          onSend={handleSend}
+          onTyping={handleTyping}
+          onVoiceSend={handleVoiceSend}
+          replyToMessage={replyToMessage}
+          setReplyToMessage={setReplyToMessage}
+          isBlocked={isBlocked}
+          otherUser={otherUser}
+        />
       </div>
 
-      {/* Info Panel - Fixed width sidebar */}
-      {!selectedChat?.isGroup && showUserInfoState && otherUser && (
-        <UserInfoPopup
-          user={otherUser}
-          show={true}
-          onClose={() => dispatch(closeAllPopups())}
-        />
-      )}
+      {/* ── SIDE INFO PANELS ── */}
+      <AnimatePresence>
+        {(showUserInfoState || showGroupInfoState) && (
+          <motion.div
+            initial={{ x: "100%" }}
+            animate={{ x: 0 }}
+            exit={{ x: "100%" }}
+            transition={{ type: "spring", damping: 26, stiffness: 220 }}
+            style={{
+              width: "320px",
+              borderLeft: "1px solid rgba(255,255,255,0.08)",
+              background: "var(--ig-bg,#000)",
+              zIndex: 20,
+              flexShrink: 0,
+              overflowY: "auto",
+            }}
+            className="no-scrollbar"
+          >
+            {showUserInfoState ? (
+              <UserInfoPopup
+                user={otherUser}
+                onClose={() => dispatch(closeAllPopups())}
+              />
+            ) : (
+              <GroupInfoPopup
+                chat={selectedChat}
+                onClose={() => dispatch(closeAllPopups())}
+              />
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-      {isGroup && showGroupInfoState && (
-        <GroupInfoPopup
-          chat={selectedChat}
-          show={true}
-          onClose={() => dispatch(closeAllPopups())}
-          onUpdate={() =>
-            dispatch(
-              setSelectedChat(chats.find((c) => c._id === selectedChat._id))
-            )
-          }
-          showInviteModal={showInviteModal}
-          setShowInviteModal={setShowInviteModal}
-        />
-      )}
-
-      {/* Viewer / Modals */}
+      {/* Media Viewer */}
       {viewedMedia && (
         <MediaViewer media={viewedMedia} onClose={() => setViewedMedia(null)} />
-      )}
-
-      {forwardModalOpen && (
-        <ForwardMessageModal
-          messages={selectedMessages}
-          onClose={() => {
-            setForwardModalOpen(false);
-            setSelectedMessages([]);
-            setIsSelectionMode(false);
-          }}
-        />
       )}
     </div>
   );

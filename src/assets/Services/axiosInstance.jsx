@@ -4,6 +4,7 @@ import {
   setAuth,
   setSessionExpired,
   setSessionRestoring,
+  logoutUser,
 } from "../store/slices/authSlice";
 
 const baseURL = import.meta.env.VITE_API_URL;
@@ -15,6 +16,13 @@ const instance = axios.create({
   headers: {
     "Content-Type": "application/json",
   },
+});
+
+// Dedicated instance for token refresh to avoid loops
+const refreshInstance = axios.create({
+  baseURL,
+  timeout: 30000,
+  withCredentials: true,
 });
 
 let store;
@@ -30,7 +38,6 @@ const loadStore = async () => {
   return store;
 };
 
-// Refresh queue
 let isRefreshing = false;
 let failedQueue = [];
 
@@ -42,7 +49,6 @@ const processQueue = (error, token = null) => {
   failedQueue = [];
 };
 
-//  Add token to requests
 instance.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem("authToken");
@@ -51,37 +57,35 @@ instance.interceptors.request.use(
     }
     return config;
   },
-  (error) => Promise.reject(error)
+  (error) => Promise.reject(error),
 );
 
-//  Handle 401 errors & retry
 instance.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
 
     if (!error.response) {
-      toast.error(" Network error. Please check your connection.");
       return Promise.reject(error);
     }
 
-    const { status } = error.response;
+    const { status, data } = error.response;
 
-    if (status === 403) {
-      toast.error(" Access denied.");
+    if (
+      (status === 401 ||
+        (status === 404 && data?.message?.includes("User not found"))) &&
+      !originalRequest._retry
+    ) {
+      if (status === 404) {
+        // Force logout for missing user
+        const storeInstance = await loadStore();
+        storeInstance?.dispatch(logoutUser());
+        return Promise.reject(error);
+      }
+      originalRequest._retry = true;
+    } else {
       return Promise.reject(error);
     }
-
-    if (status >= 500) {
-      toast.error(" Server error. Please try again later.");
-      return Promise.reject(error);
-    }
-
-    if (status !== 401 || originalRequest._retry) {
-      return Promise.reject(error);
-    }
-
-    originalRequest._retry = true;
 
     if (isRefreshing) {
       return new Promise((resolve, reject) => {
@@ -103,54 +107,33 @@ instance.interceptors.response.use(
       const storeInstance = await loadStore();
       storeInstance?.dispatch(setSessionRestoring(true));
 
-      console.log(" Token expired, attempting refresh...");
-
-      const res = await instance.post("/api/token/refresh", {
+      const res = await refreshInstance.post("/api/token/refresh", {
         refreshToken,
       });
 
-      const { accessToken, refreshToken: newRefreshToken } = res.data;
+      const { accessToken, refreshToken: newRefreshToken, user } = res.data;
 
       if (!accessToken) throw new Error("No access token received");
 
       localStorage.setItem("authToken", accessToken);
       if (newRefreshToken)
         localStorage.setItem("refreshToken", newRefreshToken);
+      if (user) localStorage.setItem("user", JSON.stringify(user));
 
-      const user = JSON.parse(localStorage.getItem("user") || "null");
       storeInstance?.dispatch(
         setAuth({
           token: accessToken,
           refreshToken: newRefreshToken || refreshToken,
-          user,
-        })
+          user: user || JSON.parse(localStorage.getItem("user") || "null"),
+        }),
       );
 
       processQueue(null, accessToken);
-
       originalRequest.headers.Authorization = `Bearer ${accessToken}`;
-      console.log(" Token refreshed via 401 handler");
-
       return instance(originalRequest);
     } catch (refreshError) {
-      console.error(" Token refresh failed:", refreshError);
-
-      if (
-        refreshError.response?.status === 401 ||
-        refreshError.response?.status === 400
-      ) {
-        console.log(" Session expired. Redirecting...");
-
-        const storeInstance = await loadStore();
-        storeInstance?.dispatch(setSessionExpired(true));
-        toast.error("Session expired. Please log in again.");
-
-        if (window.location.pathname !== "/auth") {
-          setTimeout(() => (window.location.href = "/auth"), 1000);
-        }
-      } else {
-        toast.error(" Network error. Try again.");
-      }
+      const storeInstance = await loadStore();
+      storeInstance?.dispatch(logoutUser());
 
       processQueue(refreshError, null);
       return Promise.reject(refreshError);
@@ -159,7 +142,7 @@ instance.interceptors.response.use(
       const storeInstance = await loadStore();
       storeInstance?.dispatch(setSessionRestoring(false));
     }
-  }
+  },
 );
 
 export default instance;

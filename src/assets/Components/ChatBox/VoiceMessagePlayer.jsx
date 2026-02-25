@@ -1,290 +1,170 @@
-import React, { useEffect, useRef, useState } from "react";
-import { Play, Pause, Mic } from "lucide-react";
+import React, { useRef, useState, useEffect } from "react";
+import { Play, Pause } from "lucide-react";
 
-const VoiceMessagePlayer = ({ url, duration = 0, profilePic, isSender }) => {
+const VoiceMessagePlayer = ({ url, duration = 0, isOwnMessage }) => {
   const audioRef = useRef(null);
-  const isMountedRef = useRef(true);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [audioDuration, setAudioDuration] = useState(duration);
   const [isLoading, setIsLoading] = useState(false);
-  const [hasError, setHasError] = useState(false);
 
-  const formatDuration = (seconds = 0) => {
-    if (!isFinite(seconds) || isNaN(seconds)) return "0:00";
-    const min = Math.floor(seconds / 60);
-    const sec = Math.floor(seconds % 60);
-    return `${min}:${sec < 10 ? "0" : ""}${sec}`;
+  const formatTime = (secs) => {
+    if (!secs || isNaN(secs)) return "0:00";
+    const min = Math.floor(secs / 60);
+    const sec = Math.floor(secs % 60);
+    return `${min}:${sec.toString().padStart(2, "0")}`;
   };
-
-  // Generate waveform bars that look more like WhatsApp
-  const generateWaveformBars = () => {
-    const bars = [];
-    const barCount = 60; // More bars for denser look
-    for (let i = 0; i < barCount; i++) {
-      // Create more varied heights like WhatsApp
-      const height = Math.random() * 20 + 3;
-      bars.push(height);
-    }
-    return bars;
-  };
-
-  const barCount = 60;
-  const [animatedBars, setAnimatedBars] = useState(Array(barCount).fill(10));
-
-  useEffect(() => {
-    let animationFrame;
-
-    const animate = () => {
-      setAnimatedBars((prevBars) => prevBars.map(() => Math.random() * 20 + 5));
-      animationFrame = requestAnimationFrame(animate);
-    };
-
-    if (isPlaying) {
-      animate();
-    }
-
-    return () => {
-      cancelAnimationFrame(animationFrame);
-    };
-  }, [isPlaying]);
-
-  useEffect(() => {
-    const audio = audioRef.current;
-    if (!audio || !url) return;
-
-    const handleTimeUpdate = () => {
-      if (isMountedRef.current) setCurrentTime(audio.currentTime);
-    };
-
-    const handleLoadedMetadata = () => {
-      if (isMountedRef.current) {
-        setIsLoading(false);
-        setHasError(false);
-        if (isFinite(audio.duration) && !isNaN(audio.duration)) {
-          setAudioDuration(audio.duration);
-        }
-      }
-    };
-
-    const handleEnded = () => {
-      if (isMountedRef.current) {
-        setIsPlaying(false);
-        setCurrentTime(0);
-      }
-    };
-
-    const handleError = () => {
-      if (isMountedRef.current) {
-        setIsLoading(false);
-        setHasError(true);
-        setIsPlaying(false);
-      }
-    };
-
-    const handleLoadStart = () => {
-      if (isMountedRef.current) {
-        setIsLoading(true);
-        setHasError(false);
-      }
-    };
-
-    const handleCanPlay = () => {
-      if (isMountedRef.current) {
-        setIsLoading(false);
-        setHasError(false);
-      }
-    };
-
-    audio.addEventListener("timeupdate", handleTimeUpdate);
-    audio.addEventListener("loadedmetadata", handleLoadedMetadata);
-    audio.addEventListener("ended", handleEnded);
-    audio.addEventListener("error", handleError);
-    audio.addEventListener("loadstart", handleLoadStart);
-    audio.addEventListener("canplay", handleCanPlay);
-
-    return () => {
-      audio.removeEventListener("timeupdate", handleTimeUpdate);
-      audio.removeEventListener("loadedmetadata", handleLoadedMetadata);
-      audio.removeEventListener("ended", handleEnded);
-      audio.removeEventListener("error", handleError);
-      audio.removeEventListener("loadstart", handleLoadStart);
-      audio.removeEventListener("canplay", handleCanPlay);
-    };
-  }, [url]);
-
-  useEffect(() => {
-    isMountedRef.current = true;
-    return () => {
-      isMountedRef.current = false;
-      if (audioRef.current) {
-        audioRef.current.pause();
-        audioRef.current.currentTime = 0;
-      }
-    };
-  }, []);
 
   const togglePlay = async () => {
-    const audio = audioRef.current;
-    if (!audio || hasError) return;
-
-    if (isPlaying) {
-      audio.pause();
+    if (!audioRef.current) return;
+    try {
+      if (isPlaying) {
+        audioRef.current.pause();
+        setIsPlaying(false);
+      } else {
+        await audioRef.current.play();
+        setIsPlaying(true);
+      }
+    } catch (err) {
+      console.error("Audio playback error:", err);
       setIsPlaying(false);
-    } else {
-      try {
-        setIsLoading(true);
-        await audio.play();
-        if (isMountedRef.current) {
-          setIsPlaying(true);
-          setIsLoading(false);
-        }
-      } catch (err) {
-        console.error("Audio play failed:", err);
-        if (isMountedRef.current) {
-          setIsLoading(false);
-          setHasError(true);
-        }
+    }
+  };
+
+  const syncTime = () => {
+    if (audioRef.current) {
+      setCurrentTime(audioRef.current.currentTime);
+      if (audioRef.current.duration && !isNaN(audioRef.current.duration)) {
+        setAudioDuration(audioRef.current.duration);
       }
     }
   };
 
-  const handleWaveformClick = (e) => {
-    const audio = audioRef.current;
-    if (!audio || !audioDuration || hasError) return;
-
-    const rect = e.currentTarget.getBoundingClientRect();
-    const clickX = e.clientX - rect.left;
-    const percentage = Math.max(0, Math.min(1, clickX / rect.width));
-    const newTime = percentage * audioDuration;
-
-    audio.currentTime = newTime;
-    setCurrentTime(newTime);
+  const handleEnded = () => {
+    setIsPlaying(false);
+    setCurrentTime(0);
   };
 
-  const progressPercentage = audioDuration
-    ? Math.max(0, Math.min(100, (currentTime / audioDuration) * 100))
-    : 0;
-
-  if (!url) {
-    return null;
-  }
+  const progress = audioDuration > 0 ? (currentTime / audioDuration) * 100 : 0;
 
   return (
     <div
-      className={`flex w-full ${
-        isSender ? "justify-start" : "justify-end"
-      } mb-1`}
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: "12px",
+        padding: "6px 8px",
+        minWidth: "200px",
+      }}
     >
-      <div
-        className={`flex items-center px-3 py-2 rounded-2xl max-w-[320px] shadow-sm gap-2 ${
-          isSender
-            ? "bg-[#005c4b] text-white mr-auto"
-            : "bg-[#202c33] text-white ml-auto"
-        }`}
+      <audio
+        ref={audioRef}
+        src={url}
+        preload="metadata"
+        onTimeUpdate={syncTime}
+        onEnded={handleEnded}
+        onLoadStart={() => setIsLoading(true)}
+        onCanPlay={() => setIsLoading(false)}
+        onLoadedMetadata={(e) => {
+          if (e.target.duration && !isNaN(e.target.duration)) {
+            setAudioDuration(e.target.duration);
+          }
+        }}
+      />
+
+      {/* Play/Pause Button */}
+      <button
+        onClick={togglePlay}
+        style={{
+          width: "32px",
+          height: "32px",
+          borderRadius: "50%",
+          border: "none",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          cursor: "pointer",
+          transition: "transform 0.1s, background 0.15s",
+          flexShrink: 0,
+          background: isOwnMessage
+            ? "rgba(255,255,255,0.25)"
+            : "rgba(225,48,108,0.2)",
+          color: isOwnMessage ? "#fff" : "#e1306c",
+        }}
+        onMouseEnter={(e) => (e.currentTarget.style.transform = "scale(1.1)")}
+        onMouseLeave={(e) => (e.currentTarget.style.transform = "scale(1)")}
       >
-        {/* Profile Image for Receiver */}
-        {/* Profile Image */}
-        {profilePic && (
-          <img
-            src={profilePic}
-            alt="Profile"
-            className={`w-8 h-8 rounded-full object-cover flex-shrink-0 ${
-              isSender ? "order-last mr-2" : "order-first mr-0.5"
-            }`}
-            onError={(e) => {
-              e.target.style.display = "none";
-            }}
-          />
-        )}
-
-        {/* Hidden audio element */}
-        <audio
-          ref={audioRef}
-          src={url}
-          preload="metadata"
-          style={{ display: "none" }}
-          onEnded={() => {
-            setIsPlaying(false);
-            setCurrentTime(0);
-          }}
-        />
-
-        {/* Play / Pause Button */}
-        <button
-          onClick={togglePlay}
-          disabled={isLoading || hasError}
-          className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 transition-all duration-200 ${
-            hasError
-              ? "bg-red-500/30 cursor-not-allowed"
-              : isLoading
-              ? "bg-white/10 cursor-wait"
-              : isSender
-              ? "bg-white/20 hover:bg-white/30 cursor-pointer"
-              : "bg-[#00a884] hover:bg-[#00a884]/80 cursor-pointer"
-          }`}
-        >
-          {isLoading ? (
-            <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
-          ) : hasError ? (
-            <span className="text-red-400 text-xs">!</span>
-          ) : isPlaying ? (
-            <Pause size={14} className="text-white" />
-          ) : (
-            <Play size={14} className="text-white ml-0.5" />
-          )}
-        </button>
-
-        {/* Waveform */}
-        <div
-          className={`relative flex-1 h-[30px] flex items-end gap-[1px] ${
-            hasError ? "cursor-not-allowed opacity-50" : "cursor-pointer"
-          }`}
-          onClick={handleWaveformClick}
-        >
-          {/* Progress circle indicator */}
+        {isLoading ? (
           <div
-            className={`absolute z-20 top-1/2 -translate-y-1/2 w-[12px] h-[12px] rounded-full border-2 transition-all duration-100 ${
-              isSender
-                ? "bg-white border-white"
-                : "bg-[#00a884] border-[#00a884]"
-            }`}
             style={{
-              left: `${Math.max(0, Math.min(100, progressPercentage))}%`,
-              transform: `translateX(-50%) translateY(-50%)`,
+              width: "14px",
+              height: "14px",
+              border: "2px solid rgba(255,255,255,0.3)",
+              borderTop: "2px solid currentColor",
+              borderRadius: "50%",
+              animation: "voiceSpin 0.7s linear infinite",
             }}
           />
+        ) : isPlaying ? (
+          <Pause size={14} fill="currentColor" />
+        ) : (
+          <Play size={14} fill="currentColor" style={{ marginLeft: "2px" }} />
+        )}
+      </button>
 
-          {/* Waveform bars */}
-          {animatedBars.map((height, index) => {
-            const barProgress = (index / animatedBars.length) * 100;
-
-            const isPlayed = barProgress <= progressPercentage;
-
-            return (
-              <div
-                key={index}
-                className={`w-[2px] transition-all duration-100 ${
-                  isPlayed
-                    ? isSender
-                      ? "bg-white/90"
-                      : "bg-[#00a884]"
-                    : "bg-white/40"
-                }`}
-                style={{ height: `${height}px` }}
-              />
-            );
-          })}
+      {/* Progress area */}
+      <div style={{ flex: 1, minWidth: 0 }}>
+        {/* Progress bar */}
+        <div
+          style={{
+            position: "relative",
+            height: "4px",
+            background: isOwnMessage
+              ? "rgba(255,255,255,0.2)"
+              : "rgba(255,255,255,0.1)",
+            borderRadius: "4px",
+            overflow: "hidden",
+          }}
+        >
+          <div
+            style={{
+              position: "absolute",
+              top: 0,
+              left: 0,
+              height: "100%",
+              width: `${progress}%`,
+              borderRadius: "4px",
+              transition: "width 0.1s linear",
+              background: isOwnMessage ? "#fff" : "#e1306c",
+            }}
+          />
         </div>
 
-        {/* Duration and Status */}
-        <div className="flex flex-col items-end text-xs text-white/70 min-w-[35px]">
-          <span>
-            {formatDuration(currentTime > 0 ? currentTime : audioDuration)}
-          </span>
-          {hasError && <span className="text-red-400 text-[10px]">Error</span>}
+        {/* Time display */}
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            marginTop: "4px",
+            fontSize: "10px",
+            fontWeight: 600,
+            color: isOwnMessage
+              ? "rgba(255,255,255,0.7)"
+              : "rgba(255,255,255,0.4)",
+          }}
+        >
+          <span>{formatTime(currentTime)}</span>
+          <span>{formatTime(audioDuration)}</span>
         </div>
       </div>
+
+      <style>{`
+        @keyframes voiceSpin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+      `}</style>
     </div>
   );
 };

@@ -1,5 +1,5 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
-import socket from "../../../../utils/socket";
+import socket from "@/utils/socket";
 import instance from "../../Services/axiosInstance";
 const baseURL = import.meta.env.VITE_API_URL;
 
@@ -11,6 +11,7 @@ const initialState = {
   currentStep: "phone",
   phoneNumber: "",
   countryCode: "+91",
+  isoCode: "in",
   otp: "",
   loading: false,
   isVerifying: false,
@@ -28,14 +29,17 @@ const initialState = {
   sessionRestoring: false,
 };
 
-const formatPhoneNumber = (countryCode, phoneNumber) => {
-  const cleanPhone = phoneNumber.replace(/^0+/, "").replace(/\D/g, "");
-  if (countryCode === "+91" && cleanPhone.length !== 10) {
-    throw new Error(
-      `Invalid Indian phone number. Expected 10 digits, got ${cleanPhone.length}`
-    );
+const formatPhoneNumber = (countryDialCode, phoneNumber) => {
+  const cleanPhone = phoneNumber.replace(/\D/g, "");
+  const dialCode = countryDialCode.replace(/\D/g, "");
+
+  // If cleanPhone starts with dialCode, remove it so we don't double count
+  let numberPart = cleanPhone;
+  if (cleanPhone.startsWith(dialCode)) {
+    numberPart = cleanPhone.slice(dialCode.length);
   }
-  return `${countryCode}${cleanPhone}`;
+
+  return `+${dialCode}${numberPart}`;
 };
 
 export const refreshAccessToken = createAsyncThunk(
@@ -49,17 +53,11 @@ export const refreshAccessToken = createAsyncThunk(
         });
       }
 
-      const response = await instance.post("/api/auth/refresh-token", {
+      const response = await instance.post("/api/token/refresh", {
         refreshToken,
       });
 
       const data = response.data;
-
-      if (!response.ok) {
-        return rejectWithValue({
-          message: data.message || "Failed to refresh access token",
-        });
-      }
 
       if (data.accessToken) {
         localStorage.setItem("authToken", data.accessToken);
@@ -71,7 +69,7 @@ export const refreshAccessToken = createAsyncThunk(
         message: error.message || "Failed to refresh token",
       });
     }
-  }
+  },
 );
 
 export const sendOTP = createAsyncThunk(
@@ -81,7 +79,7 @@ export const sendOTP = createAsyncThunk(
     const fullPhone = formatPhoneNumber(countryCode, phoneNumber);
 
     try {
-      const response = await instance.post("/api/auth/send-otp", {
+      const response = await instance.post("/api/auth/send", {
         phone: fullPhone,
       });
 
@@ -92,15 +90,13 @@ export const sendOTP = createAsyncThunk(
         details: error.toString(),
       });
     }
-  }
+  },
 );
 
 export const verifyOTP = createAsyncThunk(
   "auth/verifyOTP",
   async (_, { getState, rejectWithValue }) => {
-    const { phoneNumber, countryCode, otp, sessionId, user } = getState().auth;
-
-    if (user) return rejectWithValue({ message: "User already verified" });
+    const { phoneNumber, countryCode, otp, sessionId } = getState().auth;
 
     const fullPhone = formatPhoneNumber(countryCode, phoneNumber);
     const cleanOtp = otp.trim();
@@ -118,7 +114,7 @@ export const verifyOTP = createAsyncThunk(
     };
 
     try {
-      const response = await instance.post("/api/auth/verify-otp", payload);
+      const response = await instance.post("/api/auth/verify", payload);
       return response.data;
     } catch (error) {
       const status = error.response?.status;
@@ -143,7 +139,7 @@ export const verifyOTP = createAsyncThunk(
         details: error.toString(),
       });
     }
-  }
+  },
 );
 
 export const resendOTP = createAsyncThunk(
@@ -155,7 +151,19 @@ export const resendOTP = createAsyncThunk(
     } catch (error) {
       return rejectWithValue(error);
     }
-  }
+  },
+);
+
+export const fetchMe = createAsyncThunk(
+  "auth/fetchMe",
+  async (_, { getState, rejectWithValue }) => {
+    try {
+      const response = await instance.get("/api/profile/me");
+      return response.data.user;
+    } catch (error) {
+      return rejectWithValue(error.response?.data || "Failed to fetch user");
+    }
+  },
 );
 
 export const testConnection = createAsyncThunk(
@@ -170,17 +178,30 @@ export const testConnection = createAsyncThunk(
         details: error.message,
       });
     }
-  }
+  },
 );
 
 export const rehydrateAuthFromStorage = () => (dispatch) => {
   const token = localStorage.getItem("authToken");
   const refreshToken = localStorage.getItem("refreshToken");
-  const user = JSON.parse(localStorage.getItem("user"));
+  const userString = localStorage.getItem("user");
+  let user = null;
+  try {
+    user = userString ? JSON.parse(userString) : null;
+  } catch (e) {
+    console.error("Rehydration error:", e);
+  }
 
-  if (token && user && refreshToken) {
-    dispatch(setAuth({ token, user, refreshToken }));
-    socket.auth = { token };
+  dispatch(
+    setAuth({
+      token: token || null,
+      user: user || null,
+      refreshToken: refreshToken || null,
+    }),
+  );
+
+  if (token) {
+    dispatch(fetchMe());
   }
 };
 
@@ -201,7 +222,7 @@ const authSlice = createSlice({
 
       if (action.payload.token) {
         socket.auth = { token: action.payload.token };
-        socket.connect();
+        if (!socket.connected) socket.connect();
       }
     },
 
@@ -215,6 +236,9 @@ const authSlice = createSlice({
 
     setCountryCode: (state, action) => {
       state.countryCode = action.payload;
+    },
+    setIsoCode: (state, action) => {
+      state.isoCode = action.payload;
     },
 
     setOtp: (state, action) => {
@@ -301,7 +325,7 @@ const authSlice = createSlice({
         try {
           const fullPhone = formatPhoneNumber(
             state.countryCode,
-            state.phoneNumber
+            state.phoneNumber,
           );
           state.debugInfo = `Sending OTP to: ${fullPhone}`;
         } catch (error) {
@@ -317,6 +341,7 @@ const authSlice = createSlice({
         state.user = action.payload.user || null;
         state.token = action.payload.accessToken || null;
         state.refreshToken = action.payload.refreshToken || null;
+        state.isAuthLoaded = true;
 
         // Update localStorage
         if (state.token) {
@@ -411,6 +436,15 @@ const authSlice = createSlice({
           socket.disconnect();
         }
         socket.connect();
+      })
+
+      .addCase(fetchMe.fulfilled, (state, action) => {
+        state.user = action.payload;
+        state.isAuthLoaded = true;
+        localStorage.setItem("user", JSON.stringify(action.payload));
+      })
+      .addCase(fetchMe.rejected, (state) => {
+        state.isAuthLoaded = true;
       });
   },
 });
@@ -419,6 +453,7 @@ export const {
   setCurrentStep,
   setPhoneNumber,
   setCountryCode,
+  setIsoCode,
   setOtp,
   setResendTimer,
   clearMessages,

@@ -33,7 +33,7 @@ const useAuthManager = () => {
 
       try {
         dispatch(setSessionRestoring(true));
-        const response = await axios.post(`${baseURL}/api/auth/refresh-token`, {
+        const response = await axios.post(`${baseURL}/api/token/refresh`, {
           refreshToken: refreshToken.trim(),
         });
 
@@ -50,7 +50,7 @@ const useAuthManager = () => {
             token: accessToken,
             refreshToken: newRefreshToken || refreshToken,
             user,
-          })
+          }),
         );
       } catch (err) {
         console.error(" Token refresh failed:", err);
@@ -74,7 +74,10 @@ const useAuthManager = () => {
           refreshAccessToken();
         } else {
           clearTimeout(timerRef.current);
-          timerRef.current = setTimeout(checkTokenExpiry, (timeLeft - 50) * 1000);
+          timerRef.current = setTimeout(
+            checkTokenExpiry,
+            (timeLeft - 50) * 1000,
+          );
         }
       } catch (err) {
         console.error("🔴 Invalid token:", err);
@@ -88,4 +91,3 @@ const useAuthManager = () => {
 };
 
 export default useAuthManager;
-

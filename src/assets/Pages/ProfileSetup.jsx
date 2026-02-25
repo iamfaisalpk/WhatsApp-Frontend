@@ -1,253 +1,11 @@
-// import React, { useState, useEffect } from "react";
-// import { useNavigate } from "react-router-dom";
-// import { useSelector, useDispatch } from "react-redux";
-// import axios from "axios";
-// import { setUser, logoutUser } from "../store/slices/authSlice";
-// import { Camera, Check } from "lucide-react";
-
-// const baseURL = import.meta.env.VITE_API_URL;
-
-// const ProfileSetup = () => {
-//   const [name, setName] = useState("");
-//   const [image, setImage] = useState(null);
-//   const [preview, setPreview] = useState("");
-//   const [loading, setLoading] = useState(false);
-//   const [error, setError] = useState("");
-  
-//   const navigate = useNavigate();
-//   const dispatch = useDispatch();
-//   const { token, phoneNumber, user } = useSelector((state) => state.auth);
-  
-//   // Get token from storage if not in Redux
-//   const storageToken = localStorage.getItem('authToken') || sessionStorage.getItem('authToken');
-//   const authToken = token || storageToken;
-
-//   // Redirect if already has profile
-//   useEffect(() => {
-//     if (user?.name && user?.profilePic) {
-//       navigate("/app", {replace: true});
-//     }
-//   }, [user, navigate]);
-
-//   // Check for token on mount
-//   useEffect(() => {
-//     if (!authToken) {
-//       navigate('/auth');
-//     }
-//   }, [authToken, navigate]);
-
-//   const handleImageChange = (e) => {
-//     const file = e.target.files[0];
-//     if (!file) return;
-    
-//     if (file.size > 2 * 1024 * 1024) {
-//       setError("Image must be less than 2MB");
-//       return;
-//     }
-    
-//     if (!file.type.match("image.*")) {
-//       setError("Please select an image file");
-//       return;
-//     }
-    
-//     setError("");
-//     setImage(file);
-//     setPreview(URL.createObjectURL(file));
-//   };
-
-//   const handleSubmit = async (e) => {
-//     e.preventDefault();
-//     setError("");
-    
-//     if (!name.trim()) {
-//       setError("Please enter your name");
-//       return;
-//     }
-    
-//     if (!image) {
-//       setError("Please select a profile image");
-//       return;
-//     }
-
-//     try {
-//       setLoading(true);
-      
-//       const formData = new FormData();
-//       formData.append("name", name.trim());
-//       formData.append("profilePic", image);
-
-//       const response = await axios.put(
-//         `${baseURL}/api/profile/update`,
-//         formData,
-//         {
-//           headers: {
-//             "Content-Type": "multipart/form-data",
-//             Authorization: `Bearer ${authToken}`,
-//           },
-//         }
-//       );
-
-//       dispatch(setUser(response.data.user));
-//         navigate("/app");
-
-      
-//     } catch (error) {
-//       console.error("Profile update error:", error);
-      
-//       if (error.response?.status === 401) {
-//         setError("Session expired. Please login again.");
-//         dispatch(logoutUser());
-//         navigate('/auth');
-//       } else {
-//         setError(
-//           error.response?.data?.message ||
-//           "Profile update failed. Please try again."
-//         );
-//       }
-//     } finally {
-//       setLoading(false);
-//     }
-//   };
-
-//   return (
-//     <div className="min-h-screen bg-[#0b141a] flex flex-col">
-//       {/* Header */}
-//       <div className="bg-[#202c33] p-4 flex items-center">
-//         <h1 className="text-[#e9edef] text-lg font-medium">Profile info</h1>
-//       </div>
-
-//       {/* Content */}
-//       <div className="flex-1 bg-[#0b141a] flex flex-col items-center px-8 py-12">
-//         <div className="text-center mb-8 max-w-md">
-//           <p className="text-[#8696a0] text-sm leading-relaxed">
-//             Please provide your name and an optional profile photo
-//           </p>
-//         </div>
-
-//         <form onSubmit={handleSubmit} className="w-full max-w-md space-y-8">
-//           {/* Profile Picture */}
-//           <div className="flex justify-center">
-//             <div className="relative">
-//               <div className="w-48 h-48 rounded-full overflow-hidden bg-[#182229] border-4 border-[#182229]">
-//                 {preview ? (
-//                   <img
-//                     src={preview}
-//                     alt="Preview"
-//                     className="w-full h-full object-cover"
-//                   />
-//                 ) : (
-//                   <div className="w-full h-full flex items-center justify-center">
-//                     <div className="w-24 h-24 rounded-full bg-[#8696a0] flex items-center justify-center">
-//                       <svg 
-//                         width="48" 
-//                         height="48" 
-//                         viewBox="0 0 212 212" 
-//                         fill="none"
-//                         className="text-[#54656f]"
-//                       >
-//                         <path 
-//                           fill="currentColor" 
-//                           d="M106.251.5C164.653.5 212 47.846 212 106.25S164.653 212 106.25 212C47.846 212 .5 164.654.5 106.25S47.846.5 106.251.5z"
-//                         />
-//                         <g clipPath="url(#clip0)">
-//                           <path 
-//                             fill="#F2F2F2" 
-//                             d="M173.561 171.615a62.767 62.767 0 0 0-2.065-2.955 67.7 67.7 0 0 0-2.608-3.299 70.112 70.112 0 0 0-3.184-3.527 71.097 71.097 0 0 0-5.924-5.47 72.458 72.458 0 0 0-6.89-4.699c-1.279-.785-2.583-1.514-3.933-2.165a75.52 75.52 0 0 0-4.57-1.849c-1.445-.492-2.931-.919-4.441-1.279a75.95 75.95 0 0 0-6.616-1.074c-1.317-.146-2.645-.236-3.973-.271C130.58 145.476 118.755 146.334 106.25 146.334c-12.506 0-24.331-.858-27.608-.271-1.328.035-2.656.125-3.973.271a75.95 75.95 0 0 0-6.616 1.074c-1.51.36-2.996.787-4.441 1.279a75.52 75.52 0 0 0-4.57 1.849 68.657 68.657 0 0 0-3.933 2.165 72.458 72.458 0 0 0-6.89 4.699 71.097 71.097 0 0 0-5.924 5.47 70.112 70.112 0 0 0-3.184 3.527 67.7 67.7 0 0 0-2.608 3.299 62.767 62.767 0 0 0-2.065 2.955c-1.963 2.891-2.874 5.849-2.874 8.755v3.958c0 3.018.849 5.1 2.874 8.478.399.665.818 1.316 1.253 1.953.435.638.894 1.261 1.376 1.87a71.036 71.036 0 0 0 3.043 3.757c1.057 1.251 2.171 2.459 3.342 3.623 1.172 1.165 2.403 2.284 3.692 3.356 1.289 1.072 2.637 2.097 4.044 3.073 1.407.976 2.873 1.904 4.398 2.781a71.466 71.466 0 0 0 4.985 2.468c.717.308 1.444.598 2.18.871.735.272 1.481.527 2.237.765.756.237 1.522.456 2.299.658.777.201 1.564.385 2.362.551.798.166 1.607.315 2.427.447.82.132 1.651.247 2.491.346.841.099 1.691.181 2.551.247.86.066 1.729.115 2.608.149.878.033 1.766.049 2.663.049.897 0 1.785-.016 2.663-.049.878-.034 1.748-.083 2.608-.149.86-.066 1.71-.148 2.551-.247.84-.099 1.671-.214 2.491-.346.82-.132 1.629-.281 2.427-.447.798-.166 1.585-.35 2.362-.551.777-.202 1.543-.421 2.299-.658.756-.238 1.502-.493 2.237-.765.736-.273 1.463-.563 2.18-.871a71.466 71.466 0 0 0 4.985-2.468c1.525-.877 2.991-1.805 4.398-2.781 1.407-.976 2.755-2.001 4.044-3.073 1.289-1.072 2.52-2.191 3.692-3.356 1.171-1.164 2.285-2.372 3.342-3.623a71.036 71.036 0 0 0 3.043-3.757c.482-.609.941-1.232 1.376-1.87.435-.637.854-1.288 1.253-1.953 2.025-3.378 2.874-5.46 2.874-8.478v-3.958c0-2.906-.911-5.864-2.874-8.755z"
-//                           />
-//                           <path 
-//                             fill="#DDD" 
-//                             d="M106.399 191.355c3.508 0 6.349-2.822 6.349-6.301 0-3.479-2.841-6.301-6.349-6.301-3.508 0-6.349 2.822-6.349 6.301 0 3.479 2.841 6.301 6.349 6.301z"
-//                           />
-//                           <ellipse 
-//                             cx="106.399" 
-//                             cy="130.359" 
-//                             rx="35.772" 
-//                             ry="35.026" 
-//                             fill="#DDD"
-//                           />
-//                         </g>
-//                       </svg>
-//                     </div>
-//                   </div>
-//                 )}
-//               </div>
-              
-//               <label className="absolute bottom-2 right-2 bg-[#00a884] hover:bg-[#00a884]/90 rounded-full p-3 cursor-pointer transition-colors shadow-lg">
-//                 <Camera size={20} className="text-white" />
-//                 <input
-//                   type="file"
-//                   accept="image/*"
-//                   className="hidden"
-//                   onChange={handleImageChange}
-//                 />
-//               </label>
-//             </div>
-//           </div>
-
-//           {/* Name Input */}
-//           <div className="space-y-2">
-//             <div className="relative">
-//               <input
-//                 type="text"
-//                 placeholder="Type your name here"
-//                 className="w-full bg-transparent border-b-2 border-[#00a884] pb-3 pt-2 text-[#e9edef] text-lg placeholder-[#8696a0] focus:outline-none focus:border-[#00a884] caret-[#00a884]"
-//                 value={name}
-//                 onChange={(e) => setName(e.target.value)}
-//                 maxLength={25}
-//                 required
-//               />
-//               <div className="absolute right-0 bottom-3 text-[#8696a0] text-sm">
-//                 {name.length}/25
-//               </div>
-//             </div>
-//           </div>
-
-//           {/* Error Message */}
-//           {error && (
-//             <div className="text-[#ff6b6b] text-sm text-center bg-[#ff6b6b]/10 p-3 rounded-lg">
-//               {error}
-//             </div>
-//           )}
-
-//           {/* Next Button */}
-//           <div className="flex justify-end pt-4">
-//             <button
-//               type="submit"
-//               disabled={loading || !name.trim()}
-//               className={`bg-[#00a884] hover:bg-[#00a884]/90 disabled:bg-[#8696a0]/50 disabled:cursor-not-allowed rounded-full p-4 transition-all duration-200 ${
-//                 loading ? "animate-pulse" : ""
-//               }`}
-//             >
-//               {loading ? (
-//                 <div className="animate-spin rounded-full h-6 w-6 border-2 border-white border-t-transparent"></div>
-//               ) : (
-//                 <Check size={24} className="text-white" />
-//               )}
-//             </button>
-//           </div>
-//         </form>
-//       </div>
-
-//       {/* Footer */}
-//       <div className="bg-[#202c33] p-4 text-center">
-//         <p className="text-[#8696a0] text-xs">
-//           Your personal messages are end-to-end encrypted
-//         </p>
-//       </div>
-//     </div>
-//   );
-// };
-
-// export default ProfileSetup;
-
-
-
-import React, { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import React, { useState } from "react";
+import { useNavigate, Navigate } from "react-router-dom";
 import { useSelector, useDispatch } from "react-redux";
 import axios from "axios";
-import { setUser, logoutUser } from "../store/slices/authSlice";
-import { Camera, Check } from "lucide-react";
+import { setUser, logoutUser, fetchMe } from "../store/slices/authSlice";
+import { Camera, ArrowRight, UserCircle, ShieldCheck } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { toast } from "react-hot-toast";
 
 const baseURL = import.meta.env.VITE_API_URL;
 
@@ -256,68 +14,48 @@ const ProfileSetup = () => {
   const [image, setImage] = useState(null);
   const [preview, setPreview] = useState("");
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
 
   const navigate = useNavigate();
   const dispatch = useDispatch();
-  const { token, phoneNumber, user } = useSelector((state) => state.auth);
+  const { token, user, isAuthLoaded } = useSelector((state) => state.auth);
 
-  // Get token from storage if not in Redux
-  const storageToken = localStorage.getItem('authToken') || sessionStorage.getItem('authToken');
+  const storageToken =
+    localStorage.getItem("authToken") || sessionStorage.getItem("authToken");
   const authToken = token || storageToken;
 
-  //  Redirect to /auth or /app based on user state
-  useEffect(() => {
-    if (!authToken) {
-      navigate('/auth', { replace: true });
-      return;
-    }
-
-    if (user?.name && user?.profilePic) {
-      navigate('/app', { replace: true });
-    }
-  }, [authToken, user, navigate]);
+  // Wait for auth to be fully resolved before making any redirect decision.
+  // Acting on localStorage-loaded state before isAuthLoaded is true can cause
+  // the same circular redirect loop seen in ModernAuth.
+  if (!isAuthLoaded) return null; // Brief blank — ProtectedRoute handles the spinner
+  if (!authToken) return <Navigate to="/auth" replace />;
+  if (user?.name) return <Navigate to="/app" replace />;
 
   const handleImageChange = (e) => {
     const file = e.target.files[0];
     if (!file) return;
-
-    if (file.size > 2 * 1024 * 1024) {
-      setError("Image must be less than 2MB");
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("Image must be less than 5MB");
       return;
     }
-
     if (!file.type.match("image.*")) {
-      setError("Please select an image file");
+      toast.error("Please select an image file");
       return;
     }
-
-    setError("");
     setImage(file);
     setPreview(URL.createObjectURL(file));
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError("");
-
     if (!name.trim()) {
-      setError("Please enter your name");
+      toast.error("Please enter your name");
       return;
     }
-
-    if (!image) {
-      setError("Please select a profile image");
-      return;
-    }
-
     try {
       setLoading(true);
-
       const formData = new FormData();
       formData.append("name", name.trim());
-      formData.append("profilePic", image);
-
+      if (image) formData.append("profilePic", image);
       const response = await axios.put(
         `${baseURL}/api/profile/update`,
         formData,
@@ -326,146 +64,400 @@ const ProfileSetup = () => {
             "Content-Type": "multipart/form-data",
             Authorization: `Bearer ${authToken}`,
           },
-        }
+        },
       );
-
       dispatch(setUser(response.data.user));
+      await dispatch(fetchMe()).unwrap(); // Fetch fresh data from DB
+      toast.success("Profile set up!");
       navigate("/app", { replace: true });
-
-    } catch (error) {
-      console.error("Profile update error:", error);
-
-      if (error.response?.status === 401) {
-        setError("Session expired. Please login again.");
+    } catch (err) {
+      if (err.response?.status === 401) {
         dispatch(logoutUser());
-        navigate('/auth', { replace: true });
-      } else {
-        setError(
-          error.response?.data?.message ||
-          "Profile update failed. Please try again."
-        );
-      }
+        navigate("/auth", { replace: true });
+      } else toast.error(err.response?.data?.message || "Setup failed");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-[#0b141a] flex flex-col">
-      {/* Header */}
-      <div className="bg-[#202c33] p-4 flex items-center">
-        <h1 className="text-[#e9edef] text-lg font-medium">Profile info</h1>
-      </div>
+    <div
+      style={{
+        minHeight: "100dvh",
+        width: "100%",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        background: "#0a0a0a",
+        padding: "16px",
+        position: "relative",
+        overflow: "hidden",
+        fontFamily: "'Helvetica Neue', Helvetica, Arial, sans-serif",
+        boxSizing: "border-box",
+      }}
+    >
+      {/* Blobs */}
+      <div
+        style={{
+          position: "absolute",
+          top: "-20%",
+          left: "-10%",
+          width: "60%",
+          height: "60%",
+          background:
+            "radial-gradient(circle,rgba(193,53,132,0.15) 0%,transparent 70%)",
+          borderRadius: "50%",
+          filter: "blur(60px)",
+          pointerEvents: "none",
+        }}
+      />
+      <div
+        style={{
+          position: "absolute",
+          bottom: "-20%",
+          right: "-10%",
+          width: "60%",
+          height: "60%",
+          background:
+            "radial-gradient(circle,rgba(131,58,180,0.15) 0%,transparent 70%)",
+          borderRadius: "50%",
+          filter: "blur(60px)",
+          pointerEvents: "none",
+        }}
+      />
 
-      {/* Content */}
-      <div className="flex-1 bg-[#0b141a] flex flex-col items-center px-8 py-12">
-        <div className="text-center mb-8 max-w-md">
-          <p className="text-[#8696a0] text-sm leading-relaxed">
-            Please provide your name and an optional profile photo
+      <motion.div
+        initial={{ opacity: 0, y: 24 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, ease: "easeOut" }}
+        style={{
+          width: "100%",
+          maxWidth: "420px",
+          background: "#161616",
+          borderRadius: "28px",
+          padding: "clamp(24px,6vw,44px)",
+          position: "relative",
+          zIndex: 10,
+          border: "1px solid rgba(255,255,255,0.07)",
+          boxShadow: "0 32px 80px rgba(0,0,0,0.6)",
+          boxSizing: "border-box",
+        }}
+      >
+        {/* Header */}
+        <div style={{ textAlign: "center", marginBottom: "32px" }}>
+          <span
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: "6px",
+              padding: "5px 14px",
+              background: "rgba(193,53,132,0.1)",
+              border: "1px solid rgba(193,53,132,0.2)",
+              borderRadius: "999px",
+              fontSize: "9px",
+              fontWeight: 800,
+              color: "#e1306c",
+              letterSpacing: "0.18em",
+              textTransform: "uppercase",
+              marginBottom: "16px",
+            }}
+          >
+            <ShieldCheck size={10} /> Secure Setup
+          </span>
+          <h1
+            style={{
+              fontSize: "clamp(24px,6vw,32px)",
+              fontWeight: 900,
+              color: "#fff",
+              letterSpacing: "-0.5px",
+              margin: "0 0 8px",
+            }}
+          >
+            Profile Info
+          </h1>
+          <p
+            style={{
+              color: "rgba(255,255,255,0.4)",
+              fontSize: "14px",
+              margin: 0,
+            }}
+          >
+            Personalize your identity on the network
           </p>
         </div>
 
-        <form onSubmit={handleSubmit} className="w-full max-w-md space-y-8">
-          {/* Profile Picture */}
-          <div className="flex justify-center">
-            <div className="relative">
-              <div className="w-48 h-48 rounded-full overflow-hidden bg-[#182229] border-4 border-[#182229]">
+        <form
+          onSubmit={handleSubmit}
+          style={{ display: "flex", flexDirection: "column", gap: "28px" }}
+        >
+          {/* Avatar Upload */}
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+            }}
+          >
+            <div style={{ position: "relative" }}>
+              <motion.div
+                whileHover={{ scale: 1.03 }}
+                style={{
+                  width: "clamp(100px,25vw,130px)",
+                  height: "clamp(100px,25vw,130px)",
+                  borderRadius: "50%",
+                  overflow: "hidden",
+                  background: "#1e1e1e",
+                  border: "3px solid transparent",
+                  backgroundClip: "padding-box",
+                  boxShadow:
+                    "0 0 0 3px rgba(193,53,132,0.4), 0 12px 40px rgba(0,0,0,0.4)",
+                  position: "relative",
+                }}
+              >
                 {preview ? (
                   <img
                     src={preview}
                     alt="Preview"
-                    className="w-full h-full object-cover"
+                    style={{
+                      width: "100%",
+                      height: "100%",
+                      objectFit: "cover",
+                    }}
                   />
                 ) : (
-                  <div className="w-full h-full flex items-center justify-center">
-                    <div className="w-24 h-24 rounded-full bg-[#8696a0] flex items-center justify-center">
-                      {/* Placeholder Icon */}
-                      <svg 
-                        width="48" 
-                        height="48" 
-                        viewBox="0 0 212 212" 
-                        fill="none"
-                        className="text-[#54656f]"
+                  <div
+                    style={{
+                      width: "100%",
+                      height: "100%",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      background: "rgba(255,255,255,0.02)",
+                    }}
+                  >
+                    {name ? (
+                      <span
+                        style={{
+                          color: "#fff",
+                          fontSize: "48px",
+                          fontWeight: 900,
+                          textTransform: "uppercase",
+                          textShadow: "0 4px 12px rgba(0,0,0,0.5)",
+                        }}
                       >
-                        <path 
-                          fill="currentColor" 
-                          d="M106.251.5C164.653.5 212 47.846 212 106.25S164.653 212 106.25 212C47.846 212 .5 164.654.5 106.25S47.846.5 106.251.5z"
-                        />
-                        <ellipse 
-                          cx="106.399" 
-                          cy="130.359" 
-                          rx="35.772" 
-                          ry="35.026" 
-                          fill="#DDD"
-                        />
-                      </svg>
-                    </div>
+                        {name.charAt(0)}
+                      </span>
+                    ) : (
+                      <UserCircle size={64} color="rgba(255,255,255,0.2)" />
+                    )}
                   </div>
                 )}
-              </div>
+                {loading && (
+                  <div
+                    style={{
+                      position: "absolute",
+                      inset: 0,
+                      background: "rgba(0,0,0,0.5)",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    <div
+                      style={{
+                        width: "28px",
+                        height: "28px",
+                        border: "3px solid rgba(255,255,255,0.2)",
+                        borderTop: "3px solid #fff",
+                        borderRadius: "50%",
+                        animation: "spin 0.8s linear infinite",
+                      }}
+                    />
+                  </div>
+                )}
+              </motion.div>
 
-              <label className="absolute bottom-2 right-2 bg-[#00a884] hover:bg-[#00a884]/90 rounded-full p-3 cursor-pointer transition-colors shadow-lg">
-                <Camera size={20} className="text-white" />
+              {/* Camera button */}
+              <label
+                style={{
+                  position: "absolute",
+                  bottom: "-2px",
+                  right: "-2px",
+                  width: "36px",
+                  height: "36px",
+                  background:
+                    "linear-gradient(135deg,#f09433 0%,#e6683c 25%,#dc2743 50%,#cc2366 75%,#bc1888 100%)",
+                  borderRadius: "50%",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  cursor: "pointer",
+                  boxShadow: "0 4px 16px rgba(193,53,132,0.5)",
+                  border: "2px solid #161616",
+                  transition: "transform 0.15s",
+                }}
+                onMouseEnter={(e) =>
+                  (e.currentTarget.style.transform = "scale(1.12)")
+                }
+                onMouseLeave={(e) =>
+                  (e.currentTarget.style.transform = "scale(1)")
+                }
+              >
                 <input
                   type="file"
                   accept="image/*"
-                  className="hidden"
+                  style={{ display: "none" }}
                   onChange={handleImageChange}
                 />
+                <Camera size={16} color="#fff" />
               </label>
             </div>
+            <p
+              style={{
+                marginTop: "12px",
+                fontSize: "11px",
+                color: "rgba(255,255,255,0.3)",
+                fontWeight: 600,
+              }}
+            >
+              Tap to upload photo
+            </p>
           </div>
 
           {/* Name Input */}
-          <div className="space-y-2">
-            <div className="relative">
-              <input
-                type="text"
-                placeholder="Type your name here"
-                className="w-full bg-transparent border-b-2 border-[#00a884] pb-3 pt-2 text-[#e9edef] text-lg placeholder-[#8696a0] focus:outline-none focus:border-[#00a884] caret-[#00a884]"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                maxLength={25}
-                required
-              />
-              <div className="absolute right-0 bottom-3 text-[#8696a0] text-sm">
-                {name.length}/25
-              </div>
-            </div>
-          </div>
-
-          {/* Error Message */}
-          {error && (
-            <div className="text-[#ff6b6b] text-sm text-center bg-[#ff6b6b]/10 p-3 rounded-lg">
-              {error}
-            </div>
-          )}
-
-          {/* Next Button */}
-          <div className="flex justify-end pt-4">
-            <button
-              type="submit"
-              disabled={loading || !name.trim()}
-              className={`bg-[#00a884] hover:bg-[#00a884]/90 disabled:bg-[#8696a0]/50 disabled:cursor-not-allowed rounded-full p-4 transition-all duration-200 ${
-                loading ? "animate-pulse" : ""
-              }`}
+          <div
+            style={{
+              background: "#1e1e1e",
+              borderRadius: "16px",
+              border: "1px solid rgba(255,255,255,0.08)",
+              padding: "14px 16px",
+              transition: "border-color 0.2s",
+            }}
+            onFocus={(e) =>
+              (e.currentTarget.style.borderColor = "rgba(193,53,132,0.4)")
+            }
+            onBlur={(e) =>
+              (e.currentTarget.style.borderColor = "rgba(255,255,255,0.08)")
+            }
+          >
+            <label
+              style={{
+                fontSize: "9px",
+                fontWeight: 800,
+                letterSpacing: "0.2em",
+                textTransform: "uppercase",
+                color: "rgba(255,255,255,0.35)",
+                display: "block",
+                marginBottom: "6px",
+              }}
             >
-              {loading ? (
-                <div className="animate-spin rounded-full h-6 w-6 border-2 border-white border-t-transparent"></div>
-              ) : (
-                <Check size={24} className="text-white" />
-              )}
-            </button>
+              Public Name
+            </label>
+            <input
+              type="text"
+              placeholder="How should people call you?"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              maxLength={25}
+              required
+              style={{
+                width: "100%",
+                background: "none",
+                border: "none",
+                color: "#fff",
+                fontSize: "16px",
+                fontWeight: 700,
+                outline: "none",
+                fontFamily: "inherit",
+                boxSizing: "border-box",
+              }}
+            />
           </div>
-        </form>
-      </div>
 
-      {/* Footer */}
-      <div className="bg-[#202c33] p-4 text-center">
-        <p className="text-[#8696a0] text-xs">
-          Your personal messages are end-to-end encrypted
-        </p>
-      </div>
+          <p
+            style={{
+              fontSize: "11px",
+              color: "rgba(255,255,255,0.25)",
+              textAlign: "center",
+              margin: "-12px 0 0",
+              lineHeight: 1.5,
+            }}
+          >
+            Your name and photo will be visible to your contacts.
+          </p>
+
+          {/* Submit */}
+          <button
+            type="submit"
+            disabled={loading || !name.trim()}
+            style={{
+              width: "100%",
+              height: "56px",
+              background:
+                loading || !name.trim()
+                  ? "rgba(255,255,255,0.05)"
+                  : "linear-gradient(135deg,#f09433 0%,#e6683c 25%,#dc2743 50%,#cc2366 75%,#bc1888 100%)",
+              border: "none",
+              borderRadius: "16px",
+              color: loading || !name.trim() ? "rgba(255,255,255,0.2)" : "#fff",
+              fontSize: "16px",
+              fontWeight: 800,
+              cursor: loading || !name.trim() ? "not-allowed" : "pointer",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: "10px",
+              transition: "all 0.2s",
+              boxShadow:
+                loading || !name.trim()
+                  ? "none"
+                  : "0 8px 32px rgba(193,53,132,0.35)",
+            }}
+          >
+            {loading ? (
+              <div
+                style={{
+                  width: "22px",
+                  height: "22px",
+                  border: "2px solid rgba(255,255,255,0.2)",
+                  borderTop: "2px solid #fff",
+                  borderRadius: "50%",
+                  animation: "spin 0.8s linear infinite",
+                }}
+              />
+            ) : (
+              <>
+                {" "}
+                Finalize Setup{" "}
+                <ArrowRight size={16} style={{ opacity: 0.7 }} />{" "}
+              </>
+            )}
+          </button>
+        </form>
+
+        <div
+          style={{
+            marginTop: "28px",
+            paddingTop: "20px",
+            borderTop: "1px solid rgba(255,255,255,0.06)",
+            textAlign: "center",
+          }}
+        >
+          <p
+            style={{
+              fontSize: "9px",
+              fontWeight: 800,
+              color: "rgba(255,255,255,0.2)",
+              letterSpacing: "0.18em",
+              textTransform: "uppercase",
+            }}
+          >
+            Privacy First Architecture
+          </p>
+        </div>
+      </motion.div>
+
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </div>
   );
 };

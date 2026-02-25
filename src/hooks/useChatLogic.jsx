@@ -1,9 +1,13 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useSelector, useDispatch } from "react-redux";
-import socket from "../../utils/socket";
+import socket from "@/utils/socket";
 import instance from "../assets/Services/axiosInstance";
 import { v4 as uuidv4 } from "uuid";
-import { updateSeenByInSelectedChat } from "../assets/store/slices/chatSlice";
+import {
+  updateSeenByInSelectedChat,
+  messageSent,
+  messageDeleted,
+} from "../assets/store/slices/chatSlice";
 
 const useChatLogic = () => {
   const { selectedChat } = useSelector((s) => s.chat);
@@ -19,12 +23,32 @@ const useChatLogic = () => {
   const [isSelectionMode, setIsSelectionMode] = useState(false);
   const [voiceNoteFile, setVoiceNoteFile] = useState(null);
   const [voiceNoteDuration, setVoiceNoteDuration] = useState(0);
+  const [typingUserId, setTypingUserId] = useState(null);
 
   const typingTimeoutRef = useRef();
+  const remoteTypingTimeoutRef = useRef();
   const pendingMessagesRef = useRef(new Set());
   const processedMessageIdsRef = useRef(new Set());
 
   const selectedChatId = useSelector((s) => s.chat.selectedChat?._id);
+
+  /* ── helpers ── */
+
+  // Normalize timestamp: backend sometimes sends createdAt, sometimes timestamp
+  const getTimestamp = (msg) =>
+    msg.timestamp || msg.createdAt || new Date().toISOString();
+
+  // Compute message status from readBy & deliveredTo arrays
+  const computeStatus = (msg, totalMembers = 2) => {
+    if (!msg) return "sent";
+    const readCount = (msg.readBy || []).length;
+    const deliveredCount = (msg.deliveredTo || []).length;
+    // In a 1-1 chat, totalMembers = 2 (including sender)
+    if (readCount >= totalMembers) return "seen";
+    if (readCount > 1) return "seen"; // at least one other person read it
+    if (deliveredCount > 0) return "delivered";
+    return "sent";
+  };
 
   const addMessageSafely = useCallback((newMsg) => {
     setMessages((prev) => {
@@ -65,14 +89,13 @@ const useChatLogic = () => {
   }, []);
 
   const markChatAsSeen = useCallback(async () => {
-    if (!selectedChat?._id) return;
+    if (!selectedChat?._id || !user?._id) return;
 
     try {
       const response = await instance.put("/api/messages/seen", {
         conversationId: selectedChat._id,
       });
 
-      // Get the messageIds that were marked as seen from the response
       const seenMessageIds = response.data.messageIds || [];
 
       socket.emit("message-seen", {
@@ -86,7 +109,7 @@ const useChatLogic = () => {
           if (!msg._id || !seenMessageIds.includes(msg._id)) return msg;
 
           const seenIds = (msg.readBy || []).map((u) =>
-            typeof u === "object" ? u._id : u
+            typeof u === "object" ? u._id : u,
           );
 
           if (!seenIds.includes(user._id)) {
@@ -96,31 +119,29 @@ const useChatLogic = () => {
             };
           }
           return msg;
-        })
+        }),
       );
     } catch (err) {
       console.error("Seen error:", err.message);
     }
-  }, [selectedChat?._id, user._id]);
+  }, [selectedChat?._id, user?._id]);
 
   const markMessageAsDelivered = useCallback(
     async (messageId) => {
       if (!selectedChat?._id || !messageId) return;
 
       try {
-        // Emit delivery confirmation to sender
         socket.emit("message-delivered", {
           messageId,
           conversationId: selectedChat._id,
           deliveredTo: user._id,
         });
 
-        // Update local state
         setMessages((prev) =>
           prev.map((msg) => {
             if (msg._id === messageId) {
               const deliveredIds = (msg.deliveredTo || []).map((u) =>
-                typeof u === "object" ? u._id : u
+                typeof u === "object" ? u._id : u,
               );
 
               if (!deliveredIds.includes(user._id)) {
@@ -131,15 +152,16 @@ const useChatLogic = () => {
               }
             }
             return msg;
-          })
+          }),
         );
       } catch (err) {
         console.error("Delivery confirmation error:", err.message);
       }
     },
-    [selectedChat?._id, user._id]
+    [selectedChat?._id, user._id],
   );
 
+  /* ── Voice send ── */
   const handleVoiceSend = async (audioBlob, duration, replyToMessageParam) => {
     if (!selectedChat?._id || !audioBlob) return;
 
@@ -154,6 +176,7 @@ const useChatLogic = () => {
     });
   };
 
+  /* ── Fetch messages on chat select ── */
   useEffect(() => {
     if (!selectedChat?._id) return;
 
@@ -161,6 +184,7 @@ const useChatLogic = () => {
     setReplyToMessage(null);
     setSelectedMessages([]);
     setIsSelectionMode(false);
+    setTypingUserId(null);
     pendingMessagesRef.current.clear();
     processedMessageIdsRef.current.clear();
 
@@ -168,21 +192,24 @@ const useChatLogic = () => {
       const withKeys = res.data.messages.map((msg) => ({
         ...msg,
         _clientKey: msg._id || uuidv4(),
+        // Normalize timestamp
+        timestamp: msg.timestamp || msg.createdAt,
         readBy: (msg.readBy || []).map((u) =>
-          typeof u === "object" ? u._id : u
+          typeof u === "object" ? u._id : u,
         ),
         conversationParticipants: selectedChat.participants || [],
       }));
 
       setMessages(withKeys);
       withKeys.forEach(
-        (msg) => msg._id && processedMessageIdsRef.current.add(msg._id)
+        (msg) => msg._id && processedMessageIdsRef.current.add(msg._id),
       );
       markChatAsSeen();
     });
     socket.emit("join chat", selectedChat._id);
-  }, [selectedChat?._id, selectedChat?.participants, markChatAsSeen]);
+  }, [selectedChat?._id, markChatAsSeen]);
 
+  /* ── Typing ── */
   const handleTyping = () => {
     if (!selectedChat?._id) return;
     socket.emit("typing", { conversationId: selectedChat._id });
@@ -192,6 +219,7 @@ const useChatLogic = () => {
     }, 2000);
   };
 
+  /* ── Send message ── */
   const handleSend = async ({
     voiceFile = voiceNoteFile,
     duration = voiceNoteDuration,
@@ -199,10 +227,9 @@ const useChatLogic = () => {
   } = {}) => {
     if (!newMessage && !mediaFile && !voiceFile) return;
 
-    console.log(" replyToMessage:", replyToMessage);
-    console.log(" replyParam:", replyParam);
-
     const tempId = uuidv4();
+    const now = new Date().toISOString();
+
     const tempMsg = {
       _id: null,
       tempId,
@@ -215,93 +242,109 @@ const useChatLogic = () => {
             type: mediaFile.type.startsWith("image")
               ? "image"
               : mediaFile.type.startsWith("video")
-              ? "video"
-              : "file",
+                ? "video"
+                : "file",
             name: mediaFile.name,
             size: mediaFile.size,
             uploading: true,
           }
         : null,
-
-      voiceNote: voiceFile
-        ? {
-            url: URL.createObjectURL(voiceFile),
-            duration: duration,
-          }
-        : null,
-      createdAt: new Date().toISOString(),
+      voiceNote: voiceFile ? URL.createObjectURL(voiceFile) : null,
+      voiceNoteDuration: voiceFile ? duration : null,
+      timestamp: now,
+      createdAt: now,
       replyTo: replyParam?._id || null,
       readBy: [user._id],
     };
 
     addMessageSafely(tempMsg);
 
-    const formData = new FormData();
-    formData.append("conversationId", selectedChat._id);
-    if (newMessage) formData.append("text", newMessage);
-    if (mediaFile) formData.append("media", mediaFile);
-    if (voiceFile) {
-      formData.append("voiceNote", voiceFile);
-      console.log(" Sending voice file:", voiceFile);
-    }
-    if (duration) {
-      formData.append("duration", duration.toString());
-      console.log(" Sending duration:", duration);
-    }
-    if (replyParam?._id) formData.append("replyTo", replyParam._id);
-    formData.append("tempId", tempId);
-
-    // Debug FormData contents
-    console.log(" FormData contents:");
-    for (let [key, value] of formData.entries()) {
-      console.log(`${key}:`, value);
-    }
-
+    // Clear inputs immediately for responsive UX
+    const sentText = newMessage;
+    const sentMedia = mediaFile;
     setNewMessage("");
     setMediaFile(null);
     setVoiceNoteFile(null);
     setVoiceNoteDuration(0);
     setReplyToMessage(null);
 
+    const formData = new FormData();
+    formData.append("conversationId", selectedChat._id);
+    if (sentText) formData.append("text", sentText);
+    if (sentMedia) formData.append("media", sentMedia);
+    if (voiceFile) formData.append("voiceNote", voiceFile);
+    if (duration) formData.append("duration", duration.toString());
+    if (replyParam?._id) formData.append("replyTo", replyParam._id);
+    formData.append("tempId", tempId);
+
     try {
       const res = await instance.post("/api/messages", formData, {
-        headers: {
-          "Content-Type": "multipart/form-data",
+        headers: { "Content-Type": "multipart/form-data" },
+        onUploadProgress: (progressEvent) => {
+          const percentCompleted = Math.round(
+            (progressEvent.loaded * 100) / progressEvent.total,
+          );
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.tempId === tempId
+                ? {
+                    ...m,
+                    media: m.media
+                      ? { ...m.media, progress: percentCompleted }
+                      : null,
+                  }
+                : m,
+            ),
+          );
         },
       });
-      const finalMsg = { ...res.data.message, tempId };
+      const finalMsg = {
+        ...res.data.message,
+        tempId,
+        timestamp:
+          res.data.message.timestamp || res.data.message.createdAt || now,
+      };
 
       if (!processedMessageIdsRef.current.has(finalMsg._id)) {
         addMessageSafely(finalMsg);
       }
+
+      // Update ChatList in real-time — move this chat to top with new lastMessage
+      dispatch(
+        messageSent({
+          chatId: selectedChat._id,
+          message: {
+            ...finalMsg,
+            timestamp: finalMsg.timestamp || finalMsg.createdAt || now,
+          },
+        }),
+      );
     } catch (err) {
       console.error("Send error:", err);
-      console.error("Error response:", err.response?.data);
-      console.error("Error status:", err.response?.status);
-
       pendingMessagesRef.current.delete(tempId);
       setMessages((prev) => prev.filter((m) => m.tempId !== tempId));
-
       alert(
-        `Failed to send message: ${err.response?.data?.message || err.message}`
+        `Failed to send message: ${err.response?.data?.message || err.message}`,
       );
     }
   };
 
+  /* ── Reactions ── */
   const handleReaction = async (messageId, emoji) => {
+    if (!messageId) return;
     try {
       setMessages((prev) =>
         prev.map((msg) => {
           if (msg._id === messageId) {
             const existingReactions = msg.reactions || [];
             const existingIndex = existingReactions.findIndex(
-              (r) => r.user._id === user._id && r.emoji === emoji
+              (r) => r.user?._id === user._id && r.emoji === emoji,
             );
 
             let newReactions;
             if (existingIndex > -1) {
               newReactions = existingReactions.filter(
-                (_, index) => index !== existingIndex
+                (_, index) => index !== existingIndex,
               );
             } else {
               newReactions = [
@@ -321,7 +364,7 @@ const useChatLogic = () => {
             return { ...msg, reactions: newReactions };
           }
           return msg;
-        })
+        }),
       );
 
       await instance.post(`/api/messages/react/${messageId}`, { emoji });
@@ -330,17 +373,15 @@ const useChatLogic = () => {
         emoji,
         userId: user._id,
       });
-
-      console.log(` Reaction ${emoji} sent for message ${messageId}`);
     } catch (err) {
-      console.error(" Reaction error:", err.message);
-
+      console.error("Reaction error:", err.message);
+      // Revert on failure
       setMessages((prev) =>
         prev.map((msg) => {
           if (msg._id === messageId) {
             const existingReactions = msg.reactions || [];
             const existingIndex = existingReactions.findIndex(
-              (r) => r.user._id === user._id && r.emoji === emoji
+              (r) => r.user?._id === user._id && r.emoji === emoji,
             );
 
             let revertedReactions;
@@ -359,19 +400,20 @@ const useChatLogic = () => {
               ];
             } else {
               revertedReactions = existingReactions.filter(
-                (r) => !(r.user._id === user._id && r.emoji === emoji)
+                (r) => !(r.user?._id === user._id && r.emoji === emoji),
               );
             }
 
             return { ...msg, reactions: revertedReactions };
           }
           return msg;
-        })
+        }),
       );
     }
   };
 
-  const deleteMessage = async ({ messageId, deleteForEveryone }) => {
+  /* ── Delete message ── */
+  const deleteMessage = async (messageId, deleteForEveryone = true) => {
     try {
       if (deleteForEveryone) {
         await instance.delete(`/api/messages/delete-message/${messageId}`);
@@ -385,21 +427,49 @@ const useChatLogic = () => {
         deleteForEveryone,
       });
 
-      console.log(
-        ` Delete request sent for message ${messageId}, deleteForEveryone: ${deleteForEveryone}`
+      // Remove locally immediately
+      if (deleteForEveryone) {
+        setMessages((prev) =>
+          prev.map((msg) =>
+            msg._id === messageId
+              ? {
+                  ...msg,
+                  text: null,
+                  media: null,
+                  voiceNote: null,
+                  deletedForEveryone: true,
+                  deletedAt: new Date(),
+                }
+              : msg,
+          ),
+        );
+      } else {
+        setMessages((prev) => prev.filter((m) => m._id !== messageId));
+      }
+
+      dispatch(
+        messageDeleted({
+          messageId,
+          conversationId: selectedChat._id,
+          deleteForEveryone,
+        }),
       );
     } catch (err) {
       console.error("Delete error:", err.message);
     }
   };
 
+  /* ── Seen handler ── */
   const handleSeenUpdate = useCallback(
-    ({ conversationId, readBy, messageIds }) => {
+    (data) => {
+      const { conversationId, messageIds } = data;
+      // Backend sends `seenBy`, but our Redux expects `readBy`
+      const readBy = data.readBy || data.seenBy;
       if (conversationId !== selectedChatId || !Array.isArray(messageIds))
         return;
 
       dispatch(
-        updateSeenByInSelectedChat({ conversationId, readBy, messageIds })
+        updateSeenByInSelectedChat({ conversationId, readBy, messageIds }),
       );
 
       const seenUserId = typeof readBy === "object" ? readBy._id : readBy;
@@ -409,7 +479,7 @@ const useChatLogic = () => {
           if (!msg._id || !messageIds.includes(msg._id)) return msg;
 
           const seenIds = (msg.readBy || []).map((u) =>
-            typeof u === "object" ? u._id : u
+            typeof u === "object" ? u._id : u,
           );
 
           if (!seenIds.includes(seenUserId)) {
@@ -420,22 +490,30 @@ const useChatLogic = () => {
           }
 
           return msg;
-        })
+        }),
       );
     },
-    [dispatch, selectedChatId]
+    [dispatch, selectedChatId],
   );
 
-  // main use effect logics
+  /* ── Main socket listeners ── */
   useEffect(() => {
-    if (!selectedChat?._id) return;
+    if (!selectedChat?._id || !user?._id) return;
 
     const handleNewMessage = (msg) => {
       if (msg.conversationId !== selectedChat._id) return;
       if (processedMessageIdsRef.current.has(msg._id)) return;
-      if (msg.sender._id === user._id) return; // Prevent adding own messages from socket to avoid duplication
-      addMessageSafely(msg);
+      if (msg.sender?._id === user._id) return;
+
+      // Normalize timestamp
+      const normalizedMsg = {
+        ...msg,
+        timestamp: msg.timestamp || msg.createdAt,
+      };
+
+      addMessageSafely(normalizedMsg);
       markMessageAsDelivered(msg._id);
+      markChatAsSeen(); // Auto mark as seen since chat is open
     };
 
     const handleDeliveryUpdate = ({ messageIds, deliveredTo }) => {
@@ -443,7 +521,7 @@ const useChatLogic = () => {
         prev.map((msg) => {
           if (!msg._id || !messageIds.includes(msg._id)) return msg;
           const deliveredIds = (msg.deliveredTo || []).map((u) =>
-            typeof u === "object" ? u._id : u
+            typeof u === "object" ? u._id : u,
           );
           if (!deliveredIds.includes(deliveredTo)) {
             return {
@@ -452,7 +530,7 @@ const useChatLogic = () => {
             };
           }
           return msg;
-        })
+        }),
       );
     };
 
@@ -461,7 +539,7 @@ const useChatLogic = () => {
         prev.map((msg) => {
           if (msg._id === messageId) {
             const deliveredIds = (msg.deliveredTo || []).map((u) =>
-              typeof u === "object" ? u._id : u
+              typeof u === "object" ? u._id : u,
             );
             if (!deliveredIds.includes(deliveredTo)) {
               return {
@@ -471,7 +549,7 @@ const useChatLogic = () => {
             }
           }
           return msg;
-        })
+        }),
       );
     };
 
@@ -485,7 +563,7 @@ const useChatLogic = () => {
       setMessages((prev) =>
         prev
           .map((msg) => {
-            if (msg._id === messageId) {
+            if (String(msg._id) === String(messageId)) {
               if (deleteForEveryone) {
                 return {
                   ...msg,
@@ -501,11 +579,15 @@ const useChatLogic = () => {
             }
             return msg;
           })
-          .filter(Boolean)
+          .filter(Boolean),
       );
 
-      console.log(
-        ` Message ${messageId} deleted - deleteForEveryone: ${deleteForEveryone}`
+      dispatch(
+        messageDeleted({
+          messageId,
+          conversationId,
+          deleteForEveryone,
+        }),
       );
     };
 
@@ -516,13 +598,6 @@ const useChatLogic = () => {
       action,
       user: reactUser,
     }) => {
-      console.log(` Reaction update received:`, {
-        messageId,
-        emoji,
-        reactUserId,
-        action,
-      });
-
       setMessages((prev) =>
         prev.map((msg) => {
           if (msg._id === messageId) {
@@ -531,11 +606,11 @@ const useChatLogic = () => {
             let newReactions;
             if (action === "remove") {
               newReactions = existingReactions.filter(
-                (r) => !(r.user._id === reactUserId && r.emoji === emoji)
+                (r) => !(r.user?._id === reactUserId && r.emoji === emoji),
               );
             } else {
               const existingIndex = existingReactions.findIndex(
-                (r) => r.user._id === reactUserId && r.emoji === emoji
+                (r) => r.user?._id === reactUserId && r.emoji === emoji,
               );
 
               if (existingIndex === -1) {
@@ -552,14 +627,48 @@ const useChatLogic = () => {
               }
             }
 
-            return {
-              ...msg,
-              reactions: newReactions,
-            };
+            return { ...msg, reactions: newReactions };
           }
           return msg;
-        })
+        }),
       );
+    };
+
+    /* ── Typing indicator via socket ── */
+    // Backend emits "user-typing" and "user-stop-typing" (see Socket.js lines 108, 121)
+    const handleTypingStart = ({ userId, conversationId }) => {
+      if (conversationId !== selectedChat._id) return;
+      if (userId === user._id) return;
+      setTypingUserId(userId);
+      clearTimeout(remoteTypingTimeoutRef.current);
+      remoteTypingTimeoutRef.current = setTimeout(() => {
+        setTypingUserId(null);
+      }, 3000);
+    };
+
+    const handleTypingStop = ({ userId, conversationId }) => {
+      if (conversationId !== selectedChat._id) return;
+      if (userId === user._id) return;
+      setTypingUserId(null);
+      clearTimeout(remoteTypingTimeoutRef.current);
+    };
+
+    // Handle "message-reacted" from HTTP endpoint (full reactions array)
+    const handleMessageReacted = ({ messageId, reactions }) => {
+      setMessages((prev) =>
+        prev.map((msg) => {
+          if (msg._id === messageId) {
+            return { ...msg, reactions: reactions || [] };
+          }
+          return msg;
+        }),
+      );
+    };
+
+    const handleChatCleared = ({ chatId }) => {
+      if (chatId === selectedChat._id) {
+        setMessages([]);
+      }
     };
 
     // Register all event listeners
@@ -569,6 +678,10 @@ const useChatLogic = () => {
     socket.on("seen-update", handleSeenUpdate);
     socket.on("message-deleted", handleMessageDeleted);
     socket.on("react-message", handleReactionUpdate);
+    socket.on("message-reacted", handleMessageReacted);
+    socket.on("user-typing", handleTypingStart);
+    socket.on("user-stop-typing", handleTypingStop);
+    socket.on("chat cleared", handleChatCleared);
 
     return () => {
       socket.off("message received", handleNewMessage);
@@ -577,10 +690,15 @@ const useChatLogic = () => {
       socket.off("seen-update", handleSeenUpdate);
       socket.off("message-deleted", handleMessageDeleted);
       socket.off("react-message", handleReactionUpdate);
+      socket.off("message-reacted", handleMessageReacted);
+      socket.off("user-typing", handleTypingStart);
+      socket.off("user-stop-typing", handleTypingStop);
+      socket.off("chat cleared", handleChatCleared);
+      clearTimeout(remoteTypingTimeoutRef.current);
     };
   }, [
     selectedChat?._id,
-    user._id,
+    user?._id,
     markChatAsSeen,
     addMessageSafely,
     markMessageAsDelivered,
@@ -608,6 +726,7 @@ const useChatLogic = () => {
     setSelectedMessages,
     isSelectionMode,
     setIsSelectionMode,
+    typingUserId,
     handleSend,
     handleTyping,
     handleReaction,

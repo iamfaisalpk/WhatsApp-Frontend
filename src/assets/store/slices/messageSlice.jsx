@@ -30,7 +30,7 @@ export const sendMessage = createAsyncThunk(
   }
 );
 
-// 📥 Fetch Messages
+//  Fetch Messages
 export const fetchMessages = createAsyncThunk(
   'message/fetchMessages',
   async (conversationId, { rejectWithValue }) => {
@@ -73,7 +73,6 @@ export const deleteMessage = createAsyncThunk(
   }
 );
 
-// 🧼 Clear Entire Chat Messages (Optional but often useful)
 export const clearChatMessages = createAsyncThunk(
   'message/clearChatMessages',
   async (conversationId, { rejectWithValue }) => {

@@ -12,16 +12,28 @@ import { setAuth } from "./assets/store/slices/authSlice";
 import UserProfile from "./assets/Pages/UserProfile";
 import useAuthManager from "./hooks/useAuthManager";
 import ChatBox from "./assets/Components/ChatBox/ChatBox";
-import socket, { connectSocket } from "../utils/socket";
-import { messageReceived } from "./assets/store/slices/chatSlice";
+import socket, { connectSocket } from "@/utils/socket";
+import {
+  messageReceived,
+  updateUserStatus,
+  messageDeleted,
+} from "./assets/store/slices/chatSlice";
+import { fetchChats, getBlockedUsers } from "@/utils/chatThunks";
 import GroupInvitePreview from "./assets/Pages/GroupInvitePreview";
 import WhatsAppAuth from "./assets/Components/WhatsAppAuth/WhatsAppAuth";
+import { Toaster } from "react-hot-toast";
+import Settings from "./assets/Pages/Settings";
+import ErrorPage from "./assets/Pages/ErrorPage";
 
 const router = createBrowserRouter([
-  { path: "/", element: <Navigate to="/auth" replace /> },
+  {
+    path: "/",
+    element: <Navigate to="/auth" replace />,
+    errorElement: <ErrorPage />,
+  },
   { path: "/auth", element: <WhatsAppAuth /> },
   { path: "/setup-profile", element: <ProfileSetup /> },
-            {path:"preview/:inviteToken", element : <GroupInvitePreview/>},
+  { path: "preview/:inviteToken", element: <GroupInvitePreview /> },
   {
     element: <ProtectedRoute />,
     children: [
@@ -31,11 +43,12 @@ const router = createBrowserRouter([
         children: [
           { path: "chats/:chatId", element: <ChatBox /> },
           { path: "profile", element: <UserProfile /> },
-
+          { path: "settings", element: <Settings /> },
         ],
       },
     ],
   },
+  { path: "*", element: <Navigate to="/auth" replace /> },
 ]);
 
 const App = () => {
@@ -52,7 +65,7 @@ const App = () => {
         token: storedToken || null,
         refreshToken: refreshToken || null,
         user: storedUser,
-      })
+      }),
     );
   }, [dispatch]);
 
@@ -60,36 +73,78 @@ const App = () => {
     if (token) {
       connectSocket(token);
 
-      socket.on("connect", () => {
+      const handleConnect = () => {
         console.log(" Socket connected:", socket.id);
-      });
-
-      socket.on("disconnect", () => {
+      };
+      const handleDisconnect = () => {
         console.log("Socket disconnected");
-      });
-
-      socket.on("message received", (newMessage) => {
+      };
+      const handleMessageReceived = (newMessage) => {
         const currentUserId = JSON.parse(localStorage.getItem("user"))?._id;
-
         dispatch(
           messageReceived({
             ...newMessage,
             currentUserId,
-          })
+          }),
         );
-      });
+      };
+      const handleConversationUpdated = ({
+        conversationId,
+        lastMessage,
+        updatedAt,
+      }) => {
+        const currentUserId = JSON.parse(localStorage.getItem("user"))?._id;
+        dispatch(
+          messageReceived({
+            conversationId,
+            chatId: conversationId,
+            _id: lastMessage?._id,
+            text: lastMessage?.text,
+            sender: lastMessage?.sender ? { _id: lastMessage.sender } : null,
+            timestamp: lastMessage?.timestamp || updatedAt,
+            currentUserId,
+          }),
+        );
+      };
+      const handleChatListUpdated = () => dispatch(fetchChats());
+      const handleBlockStatusUpdated = () => dispatch(getBlockedUsers());
+      const handleGroupDescriptionUpdated = () => dispatch(fetchChats());
+      const handleUserStatus = (data) => dispatch(updateUserStatus(data));
+      const handleGlobalMessageDeleted = (data) =>
+        dispatch(messageDeleted(data));
+
+      socket.on("connect", handleConnect);
+      socket.on("disconnect", handleDisconnect);
+      socket.on("message received", handleMessageReceived);
+      socket.on("conversation-updated", handleConversationUpdated);
+      socket.on("chat list updated", handleChatListUpdated);
+      socket.on("block status updated", handleBlockStatusUpdated);
+      socket.on("group description updated", handleGroupDescriptionUpdated);
+      socket.on("user-status", handleUserStatus);
+      socket.on("message-deleted", handleGlobalMessageDeleted);
 
       return () => {
-        socket.off("connect");
-        socket.off("disconnect");
-        socket.off("message received");
+        socket.off("connect", handleConnect);
+        socket.off("disconnect", handleDisconnect);
+        socket.off("message received", handleMessageReceived);
+        socket.off("conversation-updated", handleConversationUpdated);
+        socket.off("chat list updated", handleChatListUpdated);
+        socket.off("block status updated", handleBlockStatusUpdated);
+        socket.off("group description updated", handleGroupDescriptionUpdated);
+        socket.off("user-status", handleUserStatus);
+        socket.off("message-deleted", handleGlobalMessageDeleted);
       };
     }
   }, [token, dispatch]);
 
   useAuthManager();
 
-  return <RouterProvider router={router} />;
+  return (
+    <>
+      <Toaster position="top-center" reverseOrder={false} />
+      <RouterProvider router={router} />
+    </>
+  );
 };
 
 export default App;

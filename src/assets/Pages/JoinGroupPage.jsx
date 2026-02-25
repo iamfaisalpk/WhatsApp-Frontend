@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import instance from "../Services/axiosInstance";
-import { fetchChats } from "../../../utils/chatThunks";
+import { fetchChats } from "@/utils/chatThunks";
 
 const JoinGroupPage = () => {
   const { inviteToken } = useParams();
@@ -48,7 +48,7 @@ const JoinGroupPage = () => {
     joinGroup();
 
     return () => {
-      if (timeoutId) clearTimeout(timeoutId); 
+      if (timeoutId) clearTimeout(timeoutId);
     };
   }, [inviteToken, user, dispatch, navigate]);
 

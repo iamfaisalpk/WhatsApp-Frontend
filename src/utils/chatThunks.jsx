@@ -1,5 +1,5 @@
 import { createAsyncThunk } from "@reduxjs/toolkit";
-import axios from "../src/assets/Services/axiosInstance";
+import axios from "@/assets/Services/axiosInstance";
 
 export const accessChat = createAsyncThunk(
   "chat/accessChat",
@@ -9,10 +9,10 @@ export const accessChat = createAsyncThunk(
       return data.chat;
     } catch (err) {
       return rejectWithValue(
-        err.response?.data?.message || "Failed to access chat"
+        err.response?.data?.message || "Failed to access chat",
       );
     }
-  }
+  },
 );
 
 export const fetchChats = createAsyncThunk(
@@ -26,10 +26,10 @@ export const fetchChats = createAsyncThunk(
       };
     } catch (err) {
       return rejectWithValue(
-        err.response?.data?.message || "Failed to fetch chats"
+        err.response?.data?.message || "Failed to fetch chats",
       );
     }
-  }
+  },
 );
 
 export const createGroupChat = createAsyncThunk(
@@ -42,10 +42,10 @@ export const createGroupChat = createAsyncThunk(
       return data.group;
     } catch (err) {
       return rejectWithValue(
-        err.response?.data?.message || "Failed to create group"
+        err.response?.data?.message || "Failed to create group",
       );
     }
-  }
+  },
 );
 
 export const renameGroup = createAsyncThunk(
@@ -59,10 +59,10 @@ export const renameGroup = createAsyncThunk(
       return data.updatedChat;
     } catch (err) {
       return rejectWithValue(
-        err.response?.data?.message || "Failed to rename group"
+        err.response?.data?.message || "Failed to rename group",
       );
     }
-  }
+  },
 );
 
 export const addToGroup = createAsyncThunk(
@@ -76,10 +76,10 @@ export const addToGroup = createAsyncThunk(
       return data.updatedChat;
     } catch (err) {
       return rejectWithValue(
-        err.response?.data?.message || "Failed to add user"
+        err.response?.data?.message || "Failed to add user",
       );
     }
-  }
+  },
 );
 
 export const removeFromGroup = createAsyncThunk(
@@ -93,10 +93,10 @@ export const removeFromGroup = createAsyncThunk(
       return data.updatedChat;
     } catch (err) {
       return rejectWithValue(
-        err.response?.data?.message || "Failed to remove user"
+        err.response?.data?.message || "Failed to remove user",
       );
     }
-  }
+  },
 );
 
 export const leaveGroup = createAsyncThunk(
@@ -107,10 +107,10 @@ export const leaveGroup = createAsyncThunk(
       return data.updatedChat;
     } catch (err) {
       return rejectWithValue(
-        err.response?.data?.message || "Failed to leave group"
+        err.response?.data?.message || "Failed to leave group",
       );
     }
-  }
+  },
 );
 
 export const deleteChat = createAsyncThunk(
@@ -121,10 +121,10 @@ export const deleteChat = createAsyncThunk(
       return chatId;
     } catch (err) {
       return rejectWithValue(
-        err.response?.data?.message || "Failed to delete chat"
+        err.response?.data?.message || "Failed to delete chat",
       );
     }
-  }
+  },
 );
 
 export const toggleFavorite = createAsyncThunk(
@@ -135,10 +135,10 @@ export const toggleFavorite = createAsyncThunk(
       return { chatId, isFavorite: data.isFavorite };
     } catch (err) {
       return rejectWithValue(
-        err.response?.data?.message || "Failed to toggle favorite"
+        err.response?.data?.message || "Failed to toggle favorite",
       );
     }
-  }
+  },
 );
 
 export const markAsRead = createAsyncThunk(
@@ -151,10 +151,10 @@ export const markAsRead = createAsyncThunk(
       return chatId;
     } catch (err) {
       return rejectWithValue(
-        err.response?.data?.message || "Failed to mark as read"
+        err.response?.data?.message || "Failed to mark as read",
       );
     }
-  }
+  },
 );
 
 export const markAsUnread = createAsyncThunk(
@@ -165,10 +165,10 @@ export const markAsUnread = createAsyncThunk(
       return chatId;
     } catch (err) {
       return rejectWithValue(
-        err.response?.data?.message || "Failed to mark as unread"
+        err.response?.data?.message || "Failed to mark as unread",
       );
     }
-  }
+  },
 );
 
 export const getBlockedUsers = createAsyncThunk(
@@ -179,10 +179,10 @@ export const getBlockedUsers = createAsyncThunk(
       return data;
     } catch (err) {
       return rejectWithValue(
-        err.response?.data?.message || "Failed to get blocked users"
+        err.response?.data?.message || "Failed to get blocked users",
       );
     }
-  }
+  },
 );
 
 export const toggleMuteChat = createAsyncThunk(
@@ -193,10 +193,10 @@ export const toggleMuteChat = createAsyncThunk(
       return chatId;
     } catch (err) {
       return rejectWithValue(
-        err.response?.data?.message || "Failed to toggle mute"
+        err.response?.data?.message || "Failed to toggle mute",
       );
     }
-  }
+  },
 );
 
 export const toggleArchiveChat = createAsyncThunk(
@@ -207,10 +207,10 @@ export const toggleArchiveChat = createAsyncThunk(
       return chatId;
     } catch (err) {
       return rejectWithValue(
-        err.response?.data?.message || "Failed to toggle archive"
+        err.response?.data?.message || "Failed to toggle archive",
       );
     }
-  }
+  },
 );
 
 export const togglePinChat = createAsyncThunk(
@@ -221,10 +221,10 @@ export const togglePinChat = createAsyncThunk(
       return chatId;
     } catch (err) {
       return rejectWithValue(
-        err.response?.data?.message || "Failed to toggle pin"
+        err.response?.data?.message || "Failed to toggle pin",
       );
     }
-  }
+  },
 );
 
 export const updateGroupAvatar = createAsyncThunk(
@@ -236,13 +236,55 @@ export const updateGroupAvatar = createAsyncThunk(
         formData,
         {
           headers: { "Content-Type": "multipart/form-data" },
-        }
+        },
       );
       return data.chat || data.updatedChat;
     } catch (err) {
       return rejectWithValue(
-        err.response?.data?.message || "Failed to update group avatar"
+        err.response?.data?.message || "Failed to update group avatar",
       );
     }
-  }
+  },
+);
+
+export const blockUser = createAsyncThunk(
+  "chat/blockUser",
+  async (userId, { rejectWithValue }) => {
+    try {
+      const { data } = await axios.put(`/api/users/block/${userId}`);
+      return userId;
+    } catch (err) {
+      return rejectWithValue(
+        err.response?.data?.message || "Failed to block user",
+      );
+    }
+  },
+);
+
+export const unblockUser = createAsyncThunk(
+  "chat/unblockUser",
+  async (userId, { rejectWithValue }) => {
+    try {
+      const { data } = await axios.put(`/api/users/unblock/${userId}`);
+      return userId;
+    } catch (err) {
+      return rejectWithValue(
+        err.response?.data?.message || "Failed to unblock user",
+      );
+    }
+  },
+);
+
+export const clearChat = createAsyncThunk(
+  "chat/clearChat",
+  async (chatId, { rejectWithValue }) => {
+    try {
+      await axios.delete(`/api/chat/clear/${chatId}`);
+      return chatId;
+    } catch (err) {
+      return rejectWithValue(
+        err.response?.data?.message || "Failed to clear chat",
+      );
+    }
+  },
 );

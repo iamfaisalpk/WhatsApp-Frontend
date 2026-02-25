@@ -7,7 +7,6 @@ import {
 } from "../../store/slices/chatSlice";
 import {
   Star,
-  MoreVertical,
   Archive,
   Trash2,
   VolumeX,
@@ -16,6 +15,9 @@ import {
   CheckCheck,
   Pin,
   Users,
+  UserCircle,
+  MoreHorizontal,
+  MessageSquare,
 } from "lucide-react";
 import {
   deleteChat,
@@ -23,40 +25,31 @@ import {
   toggleArchiveChat,
   toggleFavorite,
   toggleMuteChat,
-} from "../../../../utils/chatThunks";
+} from "@/utils/chatThunks";
+import { motion, AnimatePresence } from "framer-motion";
 
 const ChatList = ({ activeTab }) => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
-
-  const { chats, archivedChats, selectedChat } = useSelector(
-    (state) => state.chat
-  );
-  const { user } = useSelector((state) => state.auth);
+  const { chats, archivedChats, selectedChat } = useSelector((s) => s.chat);
+  const { user } = useSelector((s) => s.auth);
   const [activeDropdown, setActiveDropdown] = useState(null);
   const dropdownRef = useRef(null);
 
   useEffect(() => {
-    const handleClickOutside = (e) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+    const handler = (e) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target))
         setActiveDropdown(null);
-      }
     };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
   }, []);
 
   const handleChatSelect = async (chat) => {
     dispatch(setSelectedChat(chat));
-    if (chat.unreadCount > 0 || !chat.isRead) {
+    if (chat.unreadCount > 0 || !chat.isRead)
       await dispatch(markAsRead(chat._id));
-    }
     navigate(`/app/chats/${chat._id}`);
-  };
-
-  const handleDropdownToggle = (e, chatId) => {
-    e.stopPropagation();
-    setActiveDropdown(activeDropdown === chatId ? null : chatId);
   };
 
   const formatTimestamp = (ts) => {
@@ -70,7 +63,7 @@ const ChatList = ({ activeTab }) => {
         minute: "2-digit",
       });
     if (diff < 2) return "Yesterday";
-    if (diff < 7) return date.toLocaleDateString([], { weekday: "long" });
+    if (diff < 7) return date.toLocaleDateString([], { weekday: "short" });
     return date.toLocaleDateString([], {
       day: "2-digit",
       month: "2-digit",
@@ -81,27 +74,41 @@ const ChatList = ({ activeTab }) => {
   const getMessagePreview = (chat) => {
     if (!chat.lastMessage) return "No messages yet";
     const m = chat.lastMessage;
-    if (m.media)
-      return m.media.type.startsWith("image/")
-        ? "Photo"
-        : m.media.type.startsWith("video/")
-        ? "Video"
-        : m.media.type.startsWith("audio/")
-        ? "Audio"
-        : "Document";
-    if (m.voiceNote) return "Voice message";
+    if (m.deletedForEveryone) return "🚫 Message deleted";
+    if (m.voiceNote) return "🎤 Voice message";
+    if (m.media) {
+      const t = (m.media.type || "").toLowerCase();
+      if (t === "image" || t.startsWith("image/")) return "📷 Photo";
+      if (t === "video" || t.startsWith("video/")) return "🎥 Video";
+      if (t === "audio" || t.startsWith("audio/")) return "🎵 Audio";
+      return "📎 Document";
+    }
     return m.text || "Message";
   };
 
-  const getMessageStatus = (chat) => {
+  /* Double-tick with blue for seen */
+  const StatusTick = ({ chat }) => {
+    if (!user?._id) return null;
     if (!chat.lastMessage || chat.lastMessage.sender?._id !== user._id)
       return null;
     const s = chat.lastMessage.status;
-    if (s === "sent") return <Check className="w-4 h-4 text-gray-400" />;
+    if (s === "read")
+      return (
+        <CheckCheck size={14} style={{ color: "#3797f0", flexShrink: 0 }} />
+      );
     if (s === "delivered")
-      return <CheckCheck className="w-4 h-4 text-gray-400" />;
-    if (s === "read") return <CheckCheck className="w-4 h-4 text-[#53bdeb]" />;
-    return null;
+      return (
+        <CheckCheck
+          size={14}
+          style={{ color: "rgba(255,255,255,0.4)", flexShrink: 0 }}
+        />
+      );
+    return (
+      <Check
+        size={14}
+        style={{ color: "rgba(255,255,255,0.3)", flexShrink: 0 }}
+      />
+    );
   };
 
   const allChats = activeTab === "Archived" ? archivedChats : chats;
@@ -116,204 +123,367 @@ const ChatList = ({ activeTab }) => {
     .sort(
       (a, b) =>
         new Date(b.lastMessageTime || b.lastMessage?.timestamp || 0) -
-        new Date(a.lastMessageTime || a.lastMessage?.timestamp || 0)
+        new Date(a.lastMessageTime || a.lastMessage?.timestamp || 0),
     );
 
   if (filteredChats.length === 0) {
     return (
-      <div className="p-8 text-center text-gray-400 text-sm">No chats</div>
+      <div
+        style={{
+          padding: "60px 16px",
+          textAlign: "center",
+          color: "rgba(255,255,255,0.4)",
+          fontSize: "15px",
+          fontWeight: 600,
+        }}
+      >
+        <div style={{ marginBottom: "16px", opacity: 0.3 }}>
+          <MessageSquare
+            size={48}
+            style={{ margin: "0 auto" }}
+            strokeWidth={1}
+          />
+        </div>
+        No chats yet
+      </div>
     );
   }
 
   return (
-    <div className="overflow-y-auto h-full">
-      {filteredChats.map((chat) => {
-        const otherUser =
-          !chat.isGroup &&
-          chat.members?.find((m) => String(m._id) !== String(user._id));
-        const isBlocked = otherUser?.isBlocked || otherUser?.isBlockedByMe;
-        const chatId = String(chat._id);
-        const isOpen = activeDropdown === chatId;
+    <div style={{ paddingTop: "4px" }}>
+      <AnimatePresence>
+        {filteredChats.map((chat) => {
+          const otherUser =
+            !chat.isGroup &&
+            chat.members?.find((m) => m && String(m._id) !== String(user._id));
+          const isBlocked =
+            otherUser?.isBlockedByMe || otherUser?.isBlockedByThem;
+          const chatId = String(chat._id);
+          const isOpen = activeDropdown === chatId;
+          const isSelected = selectedChat?._id === chat._id;
 
-        if (!chat.isGroup && isBlocked && !isOpen) return null;
+          const name = chat.isGroup
+            ? chat.groupName || "Group"
+            : otherUser?.savedName ||
+              otherUser?.name ||
+              otherUser?.phone ||
+              "User";
+          const pic = chat.isGroup ? chat.groupAvatar : otherUser?.profilePic;
+          const unread = chat.unreadCount || 0;
 
-        const name = chat.isGroup
-          ? chat.groupName || "Group"
-          : isBlocked
-          ? "Blocked"
-          : otherUser?.name || "User";
-        const pic = chat.isGroup
-          ? chat.groupAvatar || "/WhatsApp.jpg"
-          : isBlocked
-          ? "/WhatsApp.jpg"
-          : otherUser?.profilePic || "/WhatsApp.jpg";
-        const unread = chat.unreadCount || 0;
-
-        return (
-          <div
-            key={chat._id}
-            className={`flex gap-3 px-4 py-3 hover:bg-[#2a3942] border-b border-[#2a3942]/30 cursor-pointer ${
-              selectedChat?._id === chat._id ? "bg-[#2a3942]" : ""
-            }`}
-            onClick={() => handleChatSelect(chat)}
-          >
-            <div className="relative">
-              <img
-                src={pic}
-                alt=""
-                className="w-12 h-12 rounded-full"
-                onError={(e) => (e.target.src = "/WhatsApp.jpg")}
-              />
-              {chat.isGroup && (
-                <Users className="absolute bottom-0 right-0 w-5 h-5 bg-[#00a884] text-white rounded-full p-1 border-2 border-[#111b21]" />
-              )}
-            </div>
-
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2">
-                <h3 className="text-[#e9edef] font-medium truncate">{name}</h3>
-                {chat.isPinned && <Pin className="w-4 h-4 text-[#8696a0]" />}
-                {chat.isFavorite && (
-                  <Star className="w-4 h-4 text-[#ffb700] fill-current" />
-                )}
-                {chat.muted && <VolumeX className="w-4 h-4 text-[#8696a0]" />}
-              </div>
-              <div className="flex items-center gap-1 text-sm text-[#8696a0]">
-                {getMessageStatus(chat)}
-                <span className="truncate">
-                  {chat.isGroup && chat.lastMessage?.sender?._id !== user._id
-                    ? `${chat.lastMessage.sender.name.split(" ")[0]}: `
-                    : ""}
-                  {getMessagePreview(chat)}
-                </span>
-              </div>
-            </div>
-
-            <div className="text-right">
-              <div className="text-xs text-[#8696a0]">
-                {formatTimestamp(
-                  chat.lastMessageTime || chat.lastMessage?.timestamp
-                )}
-              </div>
-              <div className="flex items-center gap-2 mt-1">
-                {unread > 0 && (
-                  <span className="bg-[#00a884] text-white text-xs rounded-full min-w-[20px] h-5 flex items-center justify-center">
-                    {unread > 99 ? "99+" : unread}
-                  </span>
-                )}
-
-                <div className="relative z-50" style={{ cursor: 'pointer' }}>
-                  <button
-                    onClick={(e) => handleDropdownToggle(e, chatId)}
-                    className="p-1 hover:bg-[#2a3942] rounded"
-                    style={{ cursor: 'pointer !important' }}
-                  >
-                    <MoreVertical size={18} style={{ cursor: 'pointer' }} />
-                  </button>
-
-                  {isOpen && (
-                    <div
-                      ref={dropdownRef}
-                      className="absolute right-0 mt-1 w-48 bg-[#233138] rounded-md shadow-lg border border-[#2a3942] py-2"
-                      style={{ 
-                        pointerEvents: 'auto',
-                        zIndex: 9999,
-                        cursor: 'default'
+          return (
+            <motion.div
+              layout
+              initial={{ opacity: 0, x: -10 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -10 }}
+              key={chat._id}
+              onClick={() => handleChatSelect(chat)}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "12px",
+                padding: "10px 16px",
+                cursor: "pointer",
+                position: "relative",
+                background: isSelected
+                  ? "rgba(255,255,255,0.07)"
+                  : "transparent",
+                transition: "background 0.15s",
+                borderRadius: "12px",
+                margin: "1px 4px",
+              }}
+              onMouseEnter={(e) => {
+                if (!isSelected)
+                  e.currentTarget.style.background = "rgba(255,255,255,0.04)";
+              }}
+              onMouseLeave={(e) => {
+                if (!isSelected)
+                  e.currentTarget.style.background = "transparent";
+              }}
+            >
+              {/* Avatar */}
+              <div style={{ position: "relative", flexShrink: 0 }}>
+                <div
+                  style={{
+                    width: "52px",
+                    height: "52px",
+                    borderRadius: "50%",
+                    overflow: "hidden",
+                    background: "#1e1e1e",
+                    border:
+                      unread > 0
+                        ? "2px solid #dc2743"
+                        : "1px solid rgba(255,255,255,0.08)",
+                  }}
+                >
+                  {pic ? (
+                    <img
+                      src={pic}
+                      alt=""
+                      style={{
+                        width: "100%",
+                        height: "100%",
+                        objectFit: "cover",
                       }}
-                      onClick={(e) => e.stopPropagation()}
+                    />
+                  ) : (
+                    <div
+                      style={{
+                        width: "100%",
+                        height: "100%",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        background: "rgba(255,255,255,0.03)",
+                      }}
                     >
-                      {/* FAVORITE */}
-                      <button
-                        className="w-full px-4 py-2 text-left hover:bg-[#2a3942] flex items-center gap-3 text-sm"
-                        style={{ cursor: 'pointer' }}
-                        onClick={async (e) => {
-                          e.stopPropagation();
-                          await dispatch(toggleFavorite(chat._id)).unwrap();
-                          setActiveDropdown(null);
-                        }}
-                      >
-                        <Star
-                          className={`w-4 h-4 ${
-                            chat.isFavorite
-                              ? "text-[#ffb700] fill-current"
-                              : "text-[#8696a0]"
-                          }`}
-                        />
-                        {chat.isFavorite
-                          ? "Remove from favorites"
-                          : "Add to favorites"}
-                      </button>
+                      {chat.isGroup ? (
+                        <Users size={24} color="rgba(255,255,255,0.3)" />
+                      ) : (
+                        <span
+                          style={{
+                            color: "#fff",
+                            fontSize: "20px",
+                            fontWeight: 800,
+                            textTransform: "uppercase",
+                          }}
+                        >
+                          {name.charAt(0)}
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </div>
+                {/* Online dot */}
+                {!chat.isGroup && otherUser?.isOnline && (
+                  <div
+                    style={{
+                      position: "absolute",
+                      bottom: "1px",
+                      right: "1px",
+                      width: "13px",
+                      height: "13px",
+                      background: "#44c767",
+                      borderRadius: "50%",
+                      border: "2px solid var(--ig-bg,#000)",
+                    }}
+                  />
+                )}
+              </div>
 
-                      {/* MUTE */}
-                      <button
-                        className="w-full px-4 py-2 text-left hover:bg-[#2a3942] flex items-center gap-3 text-sm"
-                        style={{ cursor: 'pointer' }}
-                        onClick={async (e) => {
-                          e.stopPropagation();
-                          await dispatch(toggleMuteChat(chat._id)).unwrap();
-                          dispatch(
-                            updateChatInList({
-                              _id: chat._id,
-                              muted: !chat.muted,
-                            })
-                          );
-                          setActiveDropdown(null);
-                        }}
-                      >
-                        {chat.muted ? (
-                          <Volume2 className="w-4 h-4 text-[#8696a0]" />
-                        ) : (
-                          <VolumeX className="w-4 h-4 text-[#8696a0]" />
-                        )}
-                        {chat.muted ? "Unmute" : "Mute notifications"}
-                      </button>
+              {/* Text content */}
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "baseline",
+                    justifyContent: "space-between",
+                    gap: "8px",
+                    marginBottom: "3px",
+                  }}
+                >
+                  <h3
+                    style={{
+                      fontSize: "15px",
+                      fontWeight: unread > 0 ? 800 : 600,
+                      color: "#fff",
+                      margin: 0,
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                      flex: 1,
+                    }}
+                  >
+                    {name}
+                  </h3>
+                  <span
+                    style={{
+                      fontSize: "11px",
+                      color: unread > 0 ? "#dc2743" : "rgba(255,255,255,0.3)",
+                      whiteSpace: "nowrap",
+                      flexShrink: 0,
+                      fontWeight: unread > 0 ? 700 : 400,
+                    }}
+                  >
+                    {formatTimestamp(
+                      chat.lastMessageTime || chat.lastMessage?.timestamp,
+                    )}
+                  </span>
+                </div>
 
-                      {/* ARCHIVE */}
-                      <button
-                        className="w-full px-4 py-2 text-left hover:bg-[#2a3942] flex items-center gap-3 text-sm"
-                        style={{ cursor: 'pointer' }}
-                        onClick={async (e) => {
-                          e.stopPropagation();
-                          const newArchived = !chat.isArchived;
-                          await dispatch(toggleArchiveChat(chat._id)).unwrap();
-                          dispatch(
-                            updateChatInList({
-                              _id: chat._id,
-                              isArchived: newArchived,
-                            })
-                          );
-                          setActiveDropdown(null);
-                        }}
-                      >
-                        <Archive className="w-4 h-4 text-[#8696a0]" />
-                        {chat.isArchived ? "Unarchive chat" : "Archive chat"}
-                      </button>
-
-                      <div className="border-t border-[#2a3942] my-1" />
-
-                      {/* DELETE */}
-                      <button
-                        className="w-full px-4 py-2 text-left hover:bg-[#2a3942] text-[#ea6962] flex items-center gap-3 text-sm"
-                        style={{ cursor: 'pointer' }}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          if (window.confirm("Delete this chat?")) {
-                            dispatch(deleteChat(chat._id));
-                            setActiveDropdown(null);
-                          }
-                        }}
-                      >
-                        <Trash2 className="w-4 h-4" />
-                        Delete chat
-                      </button>
+                <div
+                  style={{ display: "flex", alignItems: "center", gap: "4px" }}
+                >
+                  <StatusTick chat={chat} />
+                  <p
+                    style={{
+                      margin: 0,
+                      fontSize: "13px",
+                      color:
+                        unread > 0
+                          ? "rgba(255,255,255,0.8)"
+                          : "rgba(255,255,255,0.4)",
+                      fontWeight: unread > 0 ? 600 : 400,
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                      flex: 1,
+                    }}
+                  >
+                    {chat.isGroup &&
+                      chat.lastMessage?.sender?._id !== user?._id &&
+                      chat.lastMessage?.sender?.name && (
+                        <span style={{ color: "rgba(255,255,255,0.6)" }}>
+                          {chat.lastMessage.sender.name.split(" ")[0]}:{" "}
+                        </span>
+                      )}
+                    {getMessagePreview(chat)}
+                  </p>
+                  {/* Unread dot */}
+                  {unread > 0 && (
+                    <div
+                      style={{
+                        minWidth: "18px",
+                        height: "18px",
+                        background: "#dc2743",
+                        borderRadius: "999px",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        fontSize: "10px",
+                        fontWeight: 800,
+                        color: "#fff",
+                        padding: "0 5px",
+                        flexShrink: 0,
+                      }}
+                    >
+                      {unread > 99 ? "99+" : unread}
                     </div>
                   )}
                 </div>
               </div>
-            </div>
-          </div>
-        );
-      })}
+
+              {/* 3-dot menu */}
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setActiveDropdown(isOpen ? null : chatId);
+                }}
+                style={{
+                  background: "none",
+                  border: "none",
+                  color: "rgba(255,255,255,0.3)",
+                  cursor: "pointer",
+                  padding: "4px",
+                  borderRadius: "8px",
+                  opacity: 0,
+                  transition: "opacity 0.15s",
+                  flexShrink: 0,
+                }}
+                className="chat-menu-btn"
+              >
+                <MoreHorizontal size={18} />
+              </button>
+
+              {/* Dropdown */}
+              <AnimatePresence>
+                {isOpen && (
+                  <motion.div
+                    ref={dropdownRef}
+                    initial={{ opacity: 0, scale: 0.9, y: -8 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.9, y: -8 }}
+                    onClick={(e) => e.stopPropagation()}
+                    style={{
+                      position: "absolute",
+                      right: "12px",
+                      top: "52px",
+                      background: "#1a1a1a",
+                      border: "1px solid rgba(255,255,255,0.1)",
+                      borderRadius: "16px",
+                      padding: "6px",
+                      zIndex: 50,
+                      minWidth: "160px",
+                      boxShadow: "0 16px 48px rgba(0,0,0,0.6)",
+                    }}
+                  >
+                    {[
+                      {
+                        label: chat.isFavorite ? "Unfavorite" : "Favorite",
+                        icon: <Star size={15} />,
+                        action: () => dispatch(toggleFavorite(chat._id)),
+                      },
+                      {
+                        label: chat.isMuted ? "Unmute" : "Mute",
+                        icon: chat.isMuted ? (
+                          <Volume2 size={15} />
+                        ) : (
+                          <VolumeX size={15} />
+                        ),
+                        action: () => dispatch(toggleMuteChat(chat._id)),
+                      },
+                      {
+                        label: chat.isArchived ? "Unarchive" : "Archive",
+                        icon: <Archive size={15} />,
+                        action: () => dispatch(toggleArchiveChat(chat._id)),
+                      },
+                      {
+                        label: "Delete",
+                        icon: <Trash2 size={15} />,
+                        action: () => dispatch(deleteChat(chat._id)),
+                        danger: true,
+                      },
+                    ].map((item) => (
+                      <button
+                        key={item.label}
+                        onClick={() => {
+                          item.action();
+                          setActiveDropdown(null);
+                        }}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "10px",
+                          background: "none",
+                          border: "none",
+                          color: item.danger
+                            ? "#ff4d6d"
+                            : "rgba(255,255,255,0.8)",
+                          padding: "9px 12px",
+                          borderRadius: "10px",
+                          fontSize: "13px",
+                          fontWeight: 600,
+                          cursor: "pointer",
+                          width: "100%",
+                          textAlign: "left",
+                          transition: "background 0.12s",
+                        }}
+                        onMouseEnter={(e) =>
+                          (e.currentTarget.style.background = item.danger
+                            ? "rgba(255,77,109,0.1)"
+                            : "rgba(255,255,255,0.07)")
+                        }
+                        onMouseLeave={(e) =>
+                          (e.currentTarget.style.background = "none")
+                        }
+                      >
+                        {item.icon} {item.label}
+                      </button>
+                    ))}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </motion.div>
+          );
+        })}
+      </AnimatePresence>
+
+      <style>{`
+        .chat-menu-btn { opacity: 0 !important; }
+        [style*="background: rgba(255,255,255,0.04)"] .chat-menu-btn,
+        [style*="background: rgba(255,255,255,0.07)"] .chat-menu-btn { opacity: 1 !important; }
+      `}</style>
     </div>
   );
 };
