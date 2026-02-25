@@ -14,6 +14,7 @@ const GroupInvitePreview = React.lazy(
   () => import("./assets/Pages/GroupInvitePreview"),
 );
 const ChatBox = React.lazy(() => import("./assets/Components/ChatBox/ChatBox"));
+import { setAuth } from "./assets/store/slices/authSlice";
 import useAuthManager from "./hooks/useAuthManager";
 import socket, { connectSocket } from "@/utils/socket";
 import {
