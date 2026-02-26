@@ -104,10 +104,12 @@ const ChatBox = () => {
     markChatAsSeen,
   } = useChatLogic();
 
-  const filteredMessages = messages.filter((msg) => {
-    if (!searchText) return true;
-    return msg.text?.toLowerCase().includes(searchText.toLowerCase());
-  });
+  const filteredMessages = useMemo(() => {
+    return messages.filter((msg) => {
+      if (!searchText) return true;
+      return msg.text?.toLowerCase().includes(searchText.toLowerCase());
+    });
+  }, [messages, searchText]);
 
   /* Auto-scroll to bottom when messages change */
   useEffect(() => {

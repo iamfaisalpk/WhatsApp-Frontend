@@ -45,10 +45,11 @@ const ChatList = ({ activeTab }) => {
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
-  const handleChatSelect = async (chat) => {
+  const handleChatSelect = (chat) => {
     dispatch(setSelectedChat(chat));
-    if (chat.unreadCount > 0 || !chat.isRead)
-      await dispatch(markAsRead(chat._id));
+    if (chat.unreadCount > 0 || !chat.isRead) {
+      dispatch(markAsRead(chat._id));
+    }
     navigate(`/app/chats/${chat._id}`);
   };
 
@@ -112,19 +113,21 @@ const ChatList = ({ activeTab }) => {
   };
 
   const allChats = activeTab === "Archived" ? archivedChats : chats;
-  const filteredChats = allChats
-    .filter((chat) => {
-      if (!chat?._id) return false;
-      if (activeTab === "Unread") return chat.unreadCount > 0;
-      if (activeTab === "Favorites") return chat.isFavorite;
-      if (activeTab === "Groups") return chat.isGroup;
-      return true;
-    })
-    .sort(
-      (a, b) =>
-        new Date(b.lastMessageTime || b.lastMessage?.timestamp || 0) -
-        new Date(a.lastMessageTime || a.lastMessage?.timestamp || 0),
-    );
+  const filteredChats = useMemo(() => {
+    return allChats
+      .filter((chat) => {
+        if (!chat?._id) return false;
+        if (activeTab === "Unread") return chat.unreadCount > 0;
+        if (activeTab === "Favorites") return chat.isFavorite;
+        if (activeTab === "Groups") return chat.isGroup;
+        return true;
+      })
+      .sort(
+        (a, b) =>
+          new Date(b.lastMessageTime || b.lastMessage?.timestamp || 0) -
+          new Date(a.lastMessageTime || a.lastMessage?.timestamp || 0),
+      );
+  }, [allChats, activeTab]);
 
   if (filteredChats.length === 0) {
     return (
@@ -173,7 +176,6 @@ const ChatList = ({ activeTab }) => {
 
           return (
             <motion.div
-              layout
               initial={{ opacity: 0, x: -10 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -10 }}

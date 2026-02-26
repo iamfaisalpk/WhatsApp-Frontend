@@ -366,28 +366,43 @@ const chatSlice = createSlice({
     updateUserStatus: (state, action) => {
       const { userId, isOnline } = action.payload;
 
-      // Update isOnline status for the user in all chats
-      state.chats = state.chats.map((chat) => ({
-        ...chat,
-        members: chat.members.map((member) => {
-          const mid = member && (member._id || member);
-          return String(mid) === String(userId)
-            ? { ...member, isOnline }
-            : member;
-        }),
-      }));
+      // Efficient update for chats only if the user is a member
+      state.chats.forEach((chat) => {
+        const memberIndex = chat.members.findIndex(
+          (m) => String(m && (m._id || m)) === String(userId),
+        );
+        if (memberIndex !== -1) {
+          const member = chat.members[memberIndex];
+          if (member.isOnline !== isOnline) {
+            chat.members[memberIndex] = { ...member, isOnline };
+          }
+        }
+      });
+
+      // Efficient update for archivedChats
+      state.archivedChats.forEach((chat) => {
+        const memberIndex = chat.members.findIndex(
+          (m) => String(m && (m._id || m)) === String(userId),
+        );
+        if (memberIndex !== -1) {
+          const member = chat.members[memberIndex];
+          if (member.isOnline !== isOnline) {
+            chat.members[memberIndex] = { ...member, isOnline };
+          }
+        }
+      });
 
       // Also update selectedChat if it's the target user
       if (state.selectedChat) {
-        state.selectedChat = {
-          ...state.selectedChat,
-          members: state.selectedChat.members.map((member) => {
-            const mid = member && (member._id || member);
-            return String(mid) === String(userId)
-              ? { ...member, isOnline }
-              : member;
-          }),
-        };
+        const memberIndex = state.selectedChat.members.findIndex(
+          (m) => String(m && (m._id || m)) === String(userId),
+        );
+        if (memberIndex !== -1) {
+          const member = state.selectedChat.members[memberIndex];
+          if (member.isOnline !== isOnline) {
+            state.selectedChat.members[memberIndex] = { ...member, isOnline };
+          }
+        }
       }
     },
   },
