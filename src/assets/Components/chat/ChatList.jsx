@@ -156,9 +156,14 @@ const ChatList = ({ activeTab }) => {
     <div style={{ paddingTop: "4px" }}>
       <AnimatePresence>
         {filteredChats.map((chat) => {
+          // Stable user identification to prevent "User" labels on refresh
+          const currentUserId =
+            user?._id || JSON.parse(localStorage.getItem("user") || "{}")._id;
           const otherUser =
             !chat.isGroup &&
-            chat.members?.find((m) => m && String(m._id) !== String(user._id));
+            chat.members?.find(
+              (m) => m && String(m._id) !== String(currentUserId),
+            );
           const isBlocked =
             otherUser?.isBlockedByMe || otherUser?.isBlockedByThem;
           const chatId = String(chat._id);

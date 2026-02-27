@@ -495,7 +495,7 @@ const AppMain = () => {
                     margin: 0,
                   }}
                 >
-                  {user?.name || "Messages"}
+                  {user?.name || "PK.Chat"}
                 </h1>
                 <button
                   onClick={() => setShowGroupModal(true)}
@@ -701,7 +701,10 @@ const AppMain = () => {
           style={{
             flex: 1,
             display:
-              !selectedChat && !isProfilePage && !isSettingsPage
+              !selectedChat &&
+              !isProfilePage &&
+              !isSettingsPage &&
+              !location.pathname.includes("/app/chats/")
                 ? "none"
                 : "flex",
             flexDirection: "column",
@@ -726,10 +729,7 @@ const AppMain = () => {
                 </React.Suspense>
               </motion.div>
             ) : (
-              <motion.div
-                key="placeholder"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
+              <div
                 style={{
                   height: "100%",
                   width: "100%",
@@ -741,7 +741,6 @@ const AppMain = () => {
                   textAlign: "center",
                 }}
               >
-                {/* Icon circle with gradient ring */}
                 <div
                   style={{
                     width: "88px",
@@ -795,7 +794,7 @@ const AppMain = () => {
                 >
                   Send Message
                 </button>
-              </motion.div>
+              </div>
             )}
           </AnimatePresence>
         </div>

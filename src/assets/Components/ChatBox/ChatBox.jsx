@@ -15,6 +15,8 @@ import UserInfoPopup from "./UserInfoPopup";
 import GroupInfoPopup from "./GroupInfoPopup";
 import socket from "@/utils/socket";
 import GroupHeader from "./GroupHeader";
+import SkeletonLoader from "../common/SkeletonLoader";
+import { useParams, useNavigate } from "react-router-dom";
 import {
   closeAllPopups,
   showUserInfo,
@@ -58,6 +60,9 @@ const ChatBox = () => {
   const dispatch = useDispatch();
   const { selectedChat, chats } = useSelector((state) => state.chat);
   const { user } = useSelector((state) => state.auth);
+
+  const { chatId } = useParams();
+  const navigate = useNavigate();
 
   const [viewedMedia, setViewedMedia] = useState(null);
   const [infoPanelType, setInfoPanelType] = useState(null);
@@ -127,12 +132,24 @@ const ChatBox = () => {
 
   const otherUser = useMemo(() => {
     if (!selectedChat?.isGroup && selectedChat?.members) {
+      const currentUserId =
+        user?._id || JSON.parse(localStorage.getItem("user") || "{}")._id;
       return selectedChat.members.find(
-        (m) => m && String(m._id) !== String(user?._id),
+        (m) => m && String(m._id) !== String(currentUserId),
       );
     }
     return null;
   }, [selectedChat, user]);
+
+  /* Ensure selectedChat matches the URL chatId */
+  useEffect(() => {
+    if (chatId && (!selectedChat || selectedChat._id !== chatId)) {
+      const chatFromList = chats.find((c) => c._id === chatId);
+      if (chatFromList) {
+        dispatch(setSelectedChat(chatFromList));
+      }
+    }
+  }, [chatId, chats, selectedChat, dispatch]);
 
   const isBlocked = useMemo(() => {
     if (!otherUser) return false;
@@ -140,6 +157,15 @@ const ChatBox = () => {
   }, [otherUser]);
 
   if (!selectedChat) {
+    if (chatId) {
+      return (
+        <div
+          style={{ flex: 1, background: "var(--ig-bg,#000)", height: "100%" }}
+        >
+          <SkeletonLoader />
+        </div>
+      );
+    }
     return (
       <div
         style={{
